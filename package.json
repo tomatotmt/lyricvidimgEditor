@@ -1,0 +1,60 @@
+﻿{
+  "name": "helloworld",
+  "version": "1.0.0",
+  "description": "My Remotion video",
+  "repository": {},
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/animated-emoji": "^4.0.409",
+    "@remotion/animation-utils": "^4.0.409",
+    "@remotion/bundler": "^4.0.409",
+    "@remotion/cli": "^4.0.409",
+    "@remotion/cloudrun": "^4.0.409",
+    "@remotion/enable-scss": "^4.0.409",
+    "@remotion/fonts": "^4.0.409",
+    "@remotion/gif": "^4.0.409",
+    "@remotion/google-fonts": "^4.0.409",
+    "@remotion/lambda": "^4.0.409",
+    "@remotion/lottie": "^4.0.409",
+    "@remotion/media-utils": "^4.0.409",
+    "@remotion/noise": "^4.0.409",
+    "@remotion/paths": "^4.0.409",
+    "@remotion/player": "^4.0.409",
+    "@remotion/renderer": "^4.0.409",
+    "@remotion/shapes": "^4.0.409",
+    "@remotion/skia": "^4.0.409",
+    "@remotion/studio": "^4.0.409",
+    "@remotion/tailwind-v4": "4.0.409",
+    "@remotion/three": "^4.0.409",
+    "@remotion/whisper-web": "^4.0.409",
+    "@remotion/zod-types": "4.0.409",
+    "@types/three": "^0.173.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "^4.0.409",
+    "tailwindcss": "4.0.0",
+    "three": "^0.173.0",
+    "vite": "^8.0.16",
+    "zod": "3.22.3"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.409",
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "eslint": "9.19.0",
+    "prettier": "3.6.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "web": "vite",
+    "build": "remotion bundle",
+    "upgrade": "remotion upgrade",
+    "lint": "eslint src && tsc"
+  },
+  "sideEffects": [
+    "*.css"
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+.env
+out
+
+# Ignore heavy video assets
+public/videos/*
+!public/videos/*.md
+
+# Ignore local AI cache if any
+.gemini/
