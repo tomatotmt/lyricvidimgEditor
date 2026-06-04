@@ -1,17 +1,49 @@
-﻿import React from 'react';
-import { useCurrentFrame } from 'remotion';
-import { LyricBlock, GlobalSettings } from '../types';
+import React from 'react';
+import {useCurrentFrame} from 'remotion';
+import {GlobalSettings, LyricBlock} from '../types';
+import {
+  TEXT_EFFECT_PRESETS,
+  buildAnimatedStyle,
+  getDisplayEffectAnimation,
+  getTextEffectAnimation,
+  mergeAnimation,
+  scrambleText,
+} from '../effects';
+import {ThreeTextEffectsLayer, isThreeTextEffect} from './ThreeTextEffects';
 
 interface LyricCompositionProps {
   lyrics: LyricBlock[];
   globalSettings: GlobalSettings;
 }
 
-export const LyricComposition: React.FC<LyricCompositionProps> = ({ lyrics, globalSettings }) => {
-  const frame = useCurrentFrame();
+const isCharacterTextEffect = (effect: string) =>
+  TEXT_EFFECT_PRESETS.some((preset) => preset.name === effect && preset.character);
 
-  // Filter lyrics active at the current frame
-  const activeLyrics = lyrics.filter(l => frame >= l.startFrame && frame < l.endFrame);
+const outlineShadow = (outlineColor: string) => {
+  if (!outlineColor || outlineColor === 'transparent') {
+    return '0 0 10px rgba(0,0,0,0.5)';
+  }
+  return [
+    '0 0 10px rgba(0,0,0,0.5)',
+    `-2px -2px 0 ${outlineColor}`,
+    `2px -2px 0 ${outlineColor}`,
+    `-2px 2px 0 ${outlineColor}`,
+    `2px 2px 0 ${outlineColor}`,
+  ].join(', ');
+};
+
+const renderText = (text: string, textEffect: string, displayEffect: string, frame: number) => {
+  if (textEffect === 'Random Decode' || textEffect === 'Matrix Rain' || displayEffect === 'Text Scramble Loop') {
+    return scrambleText(text, frame);
+  }
+  return text;
+};
+
+export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings}) => {
+  const frame = useCurrentFrame();
+  const activeLyrics = lyrics.filter(
+    (lyric) => frame >= lyric.startFrame && frame < lyric.endFrame && !isThreeTextEffect(lyric.textEffect)
+  );
 
   return (
     <div
@@ -27,80 +59,104 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({ lyrics, glob
         overflow: 'hidden',
       }}
     >
+      <ThreeTextEffectsLayer lyrics={lyrics} globalSettings={globalSettings} />
       {activeLyrics.map((lyric) => {
-        // Build style rules for this active lyric
         const fontName = lyric.font || globalSettings.font || 'Outfit';
         const textColor = lyric.textColor || globalSettings.textColor || '#ffffff';
         const outlineColor = globalSettings.outlineColor || 'transparent';
+        const displayActive =
+          lyric.effect &&
+          lyric.effect !== 'None' &&
+          frame >= lyric.effectStartFrame &&
+          frame < lyric.effectEndFrame;
 
-        // Check if an effect is active for the current frame
-        const hasEffect = lyric.effect && lyric.effect !== 'None' && frame >= lyric.effectStartFrame && frame < lyric.effectEndFrame;
+        const baseTransform = `translate(${lyric.x}px, ${lyric.y}px) scale(${lyric.scale})`;
+        const baseShadow = outlineShadow(outlineColor);
+        const commonContext = {
+          frame,
+          startFrame: lyric.startFrame,
+          endFrame: lyric.endFrame,
+          speed: lyric.effectSpeed,
+          intensity: lyric.effectIntensity,
+        };
 
-        // Apply basic animation style mapping
-        let transformStyles = `translate(${lyric.x}px, ${lyric.y}px) scale(${lyric.scale})`;
-        let opacityVal = 1;
-        let textShadowStyle = `0 0 10px rgba(0,0,0,0.5)`;
+        const displayAnimation = displayActive
+          ? getDisplayEffectAnimation(lyric.effect, {
+              ...commonContext,
+              startFrame: lyric.effectStartFrame,
+              endFrame: lyric.effectEndFrame,
+            }, textColor)
+          : {};
 
-        if (outlineColor !== 'transparent') {
-          textShadowStyle += `, -2px -2px 0 ${outlineColor}, 2px -2px 0 ${outlineColor}, -2px 2px 0 ${outlineColor}, 2px 2px 0 ${outlineColor}`;
+        if (isCharacterTextEffect(lyric.textEffect)) {
+          const chars = [...lyric.text];
+          return (
+            <div
+              key={lyric.id}
+              style={{
+                position: 'absolute',
+                fontFamily: fontName,
+                fontSize: '64px',
+                fontWeight: 800,
+                textAlign: 'center',
+                transform: baseTransform,
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+              }}
+            >
+              {chars.map((char, index) => {
+                const charContext = {...commonContext, index, total: chars.length};
+                const charAnimation = mergeAnimation(
+                  getTextEffectAnimation(lyric.textEffect, charContext, char),
+                  displayActive
+                    ? getDisplayEffectAnimation(lyric.effect, {
+                        ...charContext,
+                        startFrame: lyric.effectStartFrame,
+                        endFrame: lyric.effectEndFrame,
+                      }, textColor)
+                    : {}
+                );
+                const style = buildAnimatedStyle(charAnimation, '', baseShadow, textColor);
+                return (
+                  <span
+                    key={`${lyric.id}-${index}`}
+                    style={{
+                      display: 'inline-block',
+                      transformOrigin: 'center',
+                      whiteSpace: 'pre',
+                      willChange: 'transform, opacity, filter',
+                      ...style,
+                    }}
+                  >
+                    {renderText(charAnimation.text ?? char, lyric.textEffect, lyric.effect, frame - index * 3)}
+                  </span>
+                );
+              })}
+            </div>
+          );
         }
 
-        // Apply simple FX presets for visual interest
-        if (hasEffect) {
-          if (lyric.effect === 'Glitch') {
-            const drift = (frame % 3) - 1;
-            transformStyles += ` skewX(${drift * lyric.effectIntensity * 2}deg)`;
-          } else if (lyric.effect === 'Shake') {
-            const offset = (frame % 2 === 0 ? 1 : -1) * lyric.effectIntensity;
-            transformStyles += ` translate(${offset}px, ${offset}px)`;
-          } else if (lyric.effect === 'Bounce') {
-            const bounceVal = Math.sin((frame - lyric.effectStartFrame) * 0.4) * lyric.effectIntensity * 3;
-            transformStyles += ` translateY(${bounceVal}px)`;
-          } else if (lyric.effect === 'Zoom') {
-            const progress = (frame - lyric.effectStartFrame) / (lyric.effectEndFrame - lyric.effectStartFrame);
-            const zoomVal = 1 + Math.sin(progress * Math.PI) * (lyric.effectIntensity * 0.1);
-            transformStyles += ` scale(${zoomVal})`;
-          } else if (lyric.effect === 'Blur') {
-            const progress = (frame - lyric.effectStartFrame) / (lyric.effectEndFrame - lyric.effectStartFrame);
-            const blurAmt = (1 - progress) * lyric.effectIntensity;
-            transformStyles += ` blur(${blurAmt}px)`;
-          }
-        }
-
-        // Entry effects
-        const entryProgress = (frame - lyric.startFrame) / lyric.effectSpeed;
-        if (entryProgress < 1 && entryProgress > 0) {
-          if (lyric.textEffect === 'Fade In') {
-            opacityVal = entryProgress;
-          } else if (lyric.textEffect === 'Zoom In') {
-            const scaleFactor = entryProgress;
-            transformStyles += ` scale(${scaleFactor})`;
-            opacityVal = entryProgress;
-          } else if (lyric.textEffect === 'Bounce In') {
-            const scaleFactor = Math.sin(entryProgress * Math.PI / 2) * 1.1;
-            transformStyles += ` scale(${scaleFactor})`;
-          }
-        }
+        const textAnimation = getTextEffectAnimation(lyric.textEffect, commonContext, lyric.text);
+        const animation = mergeAnimation(textAnimation, displayAnimation);
+        const animatedStyle = buildAnimatedStyle(animation, baseTransform, baseShadow, textColor);
 
         return (
           <div
             key={lyric.id}
             style={{
               position: 'absolute',
-              color: textColor,
               fontFamily: fontName,
               fontSize: '64px',
               fontWeight: 800,
               textAlign: 'center',
-              transform: transformStyles,
-              opacity: opacityVal,
-              textShadow: textShadowStyle,
-              transition: 'transform 0.05s ease-out, opacity 0.1s ease-out',
+              transformOrigin: 'center',
               whiteSpace: 'nowrap',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              willChange: 'transform, opacity, filter',
+              ...animatedStyle,
             }}
           >
-            {lyric.text}
+            {renderText(animation.text ?? lyric.text, lyric.textEffect, lyric.effect, frame)}
           </div>
         );
       })}

@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lyric Video Editor Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=BIZ+UDGothic:wght@400;700&family=BIZ+UDMincho&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Bangers&family=Bebas+Neue&family=Caveat:wght@400;700&family=Cinzel:wght@400;700&family=Darumadrop+One&family=Dancing+Script:wght@400;700&family=Dela+Gothic+One&family=DotGothic16&family=Hina+Mincho&family=Inter:wght@400;700;900&family=Kaisei+Decol:wght@400;700&family=Kaisei+HarunoUmi:wght@400;700&family=Kaisei+Opti:wght@400;700&family=Kaisei+Tokumin:wght@400;700&family=Kiwi+Maru:wght@400;700&family=Klee+One:wght@400;600&family=Kosugi&family=Kosugi+Maru&family=M+PLUS+1:wght@400;700;900&family=M+PLUS+1p:wght@400;700;900&family=M+PLUS+2:wght@400;700;900&family=M+PLUS+Rounded+1c:wght@400;700;900&family=Mochiy+Pop+One&family=Mochiy+Pop+P+One&family=Montserrat:wght@400;700;900&family=New+Tegomin&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Serif+JP:wght@400;700;900&family=Orbitron:wght@400;700;900&family=Oswald:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;700;900&family=Poppins:wght@400;700;900&family=Raleway:wght@400;700;900&family=Rampart+One&family=Reggae+One&family=Roboto:wght@400;700;900&family=RocknRoll+One&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Shippori+Antique&family=Shippori+Antique+B1&family=Shippori+Mincho:wght@400;700&family=Shippori+Mincho+B1:wght@400;700&family=Stick&family=Train+One&family=Yusei+Magic&family=Zen+Antique&family=Zen+Antique+Soft&family=Zen+Kaku+Gothic+Antique:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;700;900&family=Zen+Kurenaido&family=Zen+Maru+Gothic:wght@400;700;900&family=Zen+Old+Mincho:wght@400;700;900&family=Zen+Tokyo+Zoo&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link href="https://fonts.googleapis.com/css2?family=Astloch:wght@400;700&family=Black+Ops+One&family=Bungee&family=Bungee+Hairline&family=Bungee+Inline&family=Bungee+Outline&family=Bungee+Shade&family=Butcherman&family=Codystar:wght@300;400&family=Creepster&family=Diplomata+SC&family=Eater&family=Faster+One&family=Frijole&family=Germania+One&family=Geostar&family=Geostar+Fill&family=Grenze+Gotisch:wght@400;700;900&family=Jacquard+12&family=Jacquard+12+Charted&family=Jersey+10&family=Jersey+15&family=Jersey+20&family=Jersey+25+Charted&family=Lacquer&family=Libre+Barcode+39&family=Metal+Mania&family=Monofett&family=Monoton&family=Nosifer&family=Pirata+One&family=Pixelify+Sans:wght@400;700&family=Plaster&family=Press+Start+2P&family=Rubik+Beastly&family=Rubik+Broken+Fax&family=Rubik+Burned&family=Rubik+Dirt&family=Rubik+Glitch&family=Rubik+Glitch+Pop&family=Rubik+Iso&family=Rubik+Maze&family=Rubik+Microbe&family=Rubik+Moonrocks&family=Rubik+Puddles&family=Rubik+Spray+Paint&family=Rubik+Vinyl&family=Rubik+Wet+Paint&family=Special+Elite&family=Wallpoet&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: rgba(22,24,30,.92);
+      --panel-2: #12131a;
+      --line: rgba(255,255,255,.1);
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --ok: #10b981;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { user-select: none; }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 8px minmax(340px, var(--right-panel-width, 380px));
+      gap: 10px;
+      height: 100vh;
+      padding: 18px;
+    }
+    .left, .right { min-height: 0; }
+    .left {
+      display: grid;
+      grid-template-rows: minmax(220px, var(--preview-height, 46vh)) auto 8px minmax(220px, 1fr) auto;
+      gap: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+      min-height: 0;
+    }
+    .preview-panel {
+      display: block;
+      overflow: hidden;
+    }
+    .panel-title {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      min-width: 170px;
+      height: 100%;
+      padding: 8px 6px 8px 4px;
+    }
+    .stage-wrap {
+      display: grid;
+      grid-template-columns: minmax(160px, 180px) minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .stage {
+      position: relative;
+      width: min(100%, calc((var(--preview-height, 46vh) - 28px) * 16 / 9));
+      height: auto;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 120px;
+      max-height: 100%;
+      overflow: hidden;
+      border-radius: 8px;
+      background-color: #cfcfcf;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.32) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.32) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.32) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.32) 75%);
+      background-size: 32px 32px;
+      background-position: 0 0, 0 16px, 16px -16px, -16px 0;
+      box-shadow: 0 12px 40px rgba(0,0,0,.55);
+    }
+    .lyric {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      max-width: 92%;
+      padding: .14em .32em;
+      font-size: clamp(22px, 5vw, 64px);
+      font-weight: 800;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+      line-height: 1.14;
+    }
+    .stage.drag-enabled .lyric {
+      pointer-events: auto;
+      cursor: move;
+    }
+    .status {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      min-height: 34px;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status strong { color: var(--text); }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .inline-label {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      margin: 0;
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 12px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn, .icon-btn {
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 7px;
+      background: #1f2937;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .btn { padding: 9px 12px; }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-grid;
+      place-items: center;
+      line-height: 1;
+    }
+    .btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+    .btn.danger { background: var(--danger); border-color: transparent; color: #fff; }
+    .btn.ok { background: var(--ok); border-color: transparent; color: #fff; }
+    .btn.warn { background: var(--warn); border-color: transparent; color: #fff; }
+    .btn:disabled, .icon-btn:disabled { opacity: .35; cursor: default; }
+    .timeline-panel {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 8px;
+      background: var(--panel-2);
+      overflow: hidden;
+      min-height: 180px;
+    }
+    .vertical-splitter {
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, rgba(59,130,246,.65), transparent);
+      cursor: row-resize;
+      opacity: .55;
+    }
+    .vertical-splitter:hover,
+    .vertical-splitter.dragging {
+      opacity: 1;
+      background: linear-gradient(90deg, transparent, rgba(59,130,246,1), transparent);
+    }
+    .horizontal-splitter {
+      width: 8px;
+      min-width: 8px;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, transparent, rgba(59,130,246,.45), transparent);
+      cursor: col-resize;
+      opacity: .55;
+    }
+    .horizontal-splitter:hover,
+    .horizontal-splitter.dragging {
+      opacity: 1;
+      background: linear-gradient(180deg, transparent, rgba(59,130,246,1), transparent);
+    }
+    .timeline-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .timeline-top input[type="range"] { width: 120px; }
+    .scroll-area {
+      position: relative;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px;
+      background: #07080b;
+    }
+    .timeline-content {
+      position: relative;
+      min-height: 292px;
+    }
+    .ruler {
+      position: sticky;
+      top: 0;
+      height: 26px;
+      z-index: 9;
+      background: #090a0e;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: #6b7280;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .tick {
+      position: absolute;
+      top: 0;
+      height: 26px;
+      border-left: 1px solid rgba(255,255,255,.08);
+      padding-left: 4px;
+      display: flex;
+      align-items: center;
+    }
+    .waveform {
+      position: relative;
+      height: 42px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+    }
+    .waveform canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .track {
+      position: relative;
+      height: 48px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .track-label {
+      position: sticky;
+      left: 8px;
+      top: 4px;
+      z-index: 2;
+      width: max-content;
+      color: rgba(255,255,255,.32);
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      z-index: 12;
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+      pointer-events: none;
+    }
+    .block {
+      position: absolute;
+      top: 7px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border-radius: 6px;
+      border: 1px solid rgba(59,130,246,.65);
+      background: linear-gradient(135deg, rgba(59,130,246,.36), rgba(37,99,235,.16));
+      color: var(--text);
+      font-size: 12px;
+      cursor: grab;
+      user-select: none;
+    }
+    .block.selected {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 1px rgba(96,165,250,.7), 0 0 14px rgba(59,130,246,.42);
+      background: linear-gradient(135deg, rgba(59,130,246,.7), rgba(37,99,235,.45));
+      font-weight: 800;
+    }
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 9px;
+      cursor: ew-resize;
+      z-index: 3;
+    }
+    .resize-handle.start { left: 0; }
+    .resize-handle.end { right: 0; }
+    .resize-handle::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      left: 4px;
+      width: 2px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.6);
+    }
+    .keyframe-marker {
+      position: absolute;
+      top: 2px;
+      width: 10px;
+      height: 10px;
+      z-index: 4;
+      background: #f59e0b;
+      border: 1px solid rgba(255,255,255,.85);
+      transform: translateX(-50%) rotate(45deg);
+      cursor: ew-resize;
+      box-shadow: 0 0 8px rgba(245,158,11,.6);
+    }
+    .keyframe-marker.selected {
+      background: #fff;
+      border-color: #f59e0b;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      margin-bottom: 14px;
+    }
+    .tab {
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: none;
+      color: var(--muted);
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .right .panel {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .tab-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-right: 4px;
+    }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 7px;
+      background: rgba(0,0,0,.36);
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+    }
+    input[type="color"] {
+      width: 52px;
+      height: 30px;
+      padding: 2px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 4px;
+      background: #e5e7eb;
+    }
+    input[type="range"] { width: 100%; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .section {
+      border-top: 1px solid rgba(255,255,255,.06);
+      padding-top: 12px;
+    }
+    h4 { margin: 0 0 10px; font-size: 13px; }
+    .palette { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      cursor: pointer;
+    }
+    .small-note { color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .font-picker {
+      position: relative;
+      display: grid;
+      gap: 8px;
+    }
+    .font-current {
+      width: 100%;
+      min-height: 38px;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.36);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .font-menu {
+      display: none;
+      max-height: 280px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px;
+      background: #0d0f15;
+      box-shadow: 0 16px 36px rgba(0,0,0,.45);
+      z-index: 20;
+    }
+    .font-picker.open .font-menu { display: block; }
+    .font-hover-preview {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      background: #10141c;
+      font-size: 24px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .font-option {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      cursor: pointer;
+      text-align: left;
+      display: grid;
+      grid-template-columns: minmax(120px, .9fr) minmax(180px, 1.3fr);
+      gap: 10px;
+      align-items: center;
+    }
+    .font-option:hover, .font-option.active {
+      background: rgba(59,130,246,.18);
+    }
+    .effect-picker {
+      position: relative;
+    }
+    .effect-current {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: #111827;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .effect-menu {
+      display: none;
+      position: absolute;
+      z-index: 40;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      padding: 8px;
+      background: #0b1020;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 8px;
+      box-shadow: 0 16px 36px rgba(0,0,0,.45);
+    }
+    .effect-picker.open .effect-menu {
+      display: block;
+    }
+    .effect-hover-preview {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      color: #fff;
+      background: #05070b;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .effect-options-scroll {
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .effect-preview-text {
+      display: inline-block;
+      will-change: transform, opacity, filter;
+    }
+    .effect-option {
+      width: 100%;
+      padding: 8px 10px;
+      color: #d1d5db;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .effect-option:hover, .effect-option.active {
+      color: #fff;
+      background: rgba(59,130,246,.18);
+    }
+    .font-sample {
+      font-size: 18px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @media (max-width: 980px) {
+      body { overflow: auto; height: auto; }
+      .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+      .left { grid-template-rows: minmax(220px, 48vh) auto minmax(250px, 38vh) auto; }
+      .vertical-splitter { display: none; }
+      .horizontal-splitter { display: none; }
+      .stage-wrap { grid-template-columns: 1fr; }
+      .panel-title { min-width: 0; height: auto; flex-direction: row; }
+      .right .panel { min-height: 680px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="left">
+      <section class="panel preview-panel">
+        <div class="stage-wrap">
+          <div class="panel-title">
+            <span>プレビュー (1920x1080 / 透明背景)</span>
+            <span id="selectedLabel">未選択</span>
+          </div>
+          <div id="stage" class="stage"></div>
+        </div>
+      </section>
+
+      <div class="status">
+        <div>再生時間: <strong id="timeText">0.00s</strong> / <span id="durationText">10.00s</span></div>
+        <div class="toolbar">
+          <button id="undoButton" class="icon-btn" title="戻す (Ctrl+Z)">↶</button>
+          <button id="redoButton" class="icon-btn" title="やり直す (Shift+Ctrl+Z)">↷</button>
+          <button id="playButton" class="icon-btn" title="再生/停止">▶</button>
+        </div>
+        <label class="inline-label"><input id="previewDragToggle" type="checkbox">プレビュー上で文字をドラッグ</label>
+        <div>フレーム: <strong id="frameText">0f</strong> / <span id="durationFrameText">300f</span></div>
+      </div>
+
+      <div id="verticalSplit" class="vertical-splitter" title="ドラッグしてプレビューとタイムラインの高さを調整"></div>
+
+      <section class="panel timeline-panel">
+        <div class="timeline-top">
+          <div class="toolbar">
+            <button id="addBottom" class="btn primary">+ 歌詞ブロック追加</button>
+            <label class="inline-label"><input id="snapToggle" type="checkbox" checked>スナップ</label>
+            <label class="inline-label">ズーム <input id="zoomRange" type="range" min="1" max="8" step=".5" value="2"></label>
+          </div>
+          <div class="small-note">本体ドラッグで移動 / 両端ドラッグで長さ調整 / Delで削除</div>
+        </div>
+        <div id="timelineScroll" class="scroll-area">
+          <div id="timelineContent" class="timeline-content"></div>
+        </div>
+      </section>
+
+      <audio id="audio" preload="metadata"></audio>
+    </main>
+
+    <div id="horizontalSplit" class="horizontal-splitter" title="ドラッグしてタイムラインと詳細パネルの幅を調整"></div>
+
+    <aside class="right">
+      <section class="panel">
+        <nav class="tabs">
+          <button class="tab active" data-tab="input">入力・共通</button>
+          <button class="tab" data-tab="edit">編集</button>
+          <button class="tab" data-tab="output">出力</button>
+          <button class="tab" data-tab="help">使い方</button>
+        </nav>
+        <div id="tabBody" class="tab-body"></div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    const fps = 30;
+    const stageW = 1920;
+    const stageH = 1080;
+    const colors = ['#ffffff','#000000','#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4'];
+    const fontPreviewText = '文字もじモジMoji1234';
+    const fontCatalog = [
+      ['Noto Sans JP','JP','定番ゴシック / 高可読'],
+      ['Noto Serif JP','JP','定番明朝 / 上品'],
+      ['M PLUS 1','JP','現代的ゴシック'],
+      ['M PLUS 1p','JP','丸みのあるゴシック'],
+      ['M PLUS 2','JP','幾何学的ゴシック'],
+      ['M PLUS Rounded 1c','JP','丸ゴシック / ポップ'],
+      ['Zen Kaku Gothic New','JP','硬質で現代的'],
+      ['Zen Kaku Gothic Antique','JP','クラシックなゴシック'],
+      ['Zen Maru Gothic','JP','柔らかい丸ゴ'],
+      ['Zen Old Mincho','JP','古典的な明朝'],
+      ['Zen Antique','JP','レトロ明朝'],
+      ['Zen Antique Soft','JP','柔らかいレトロ'],
+      ['Zen Kurenaido','JP','手書き風'],
+      ['Zen Tokyo Zoo','JP','装飾的 / 個性派'],
+      ['Shippori Mincho','JP','繊細な明朝'],
+      ['Shippori Mincho B1','JP','本文寄り明朝'],
+      ['Shippori Antique','JP','落ち着いたゴシック'],
+      ['Shippori Antique B1','JP','クラシックゴシック'],
+      ['Sawarabi Gothic','JP','軽いゴシック'],
+      ['Sawarabi Mincho','JP','軽い明朝'],
+      ['Kosugi','JP','シンプルゴシック'],
+      ['Kosugi Maru','JP','親しみやすい丸ゴ'],
+      ['Kiwi Maru','JP','丸みと手書き感'],
+      ['Klee One','JP','ペン字風'],
+      ['Kaisei Decol','JP','装飾的明朝'],
+      ['Kaisei HarunoUmi','JP','和風で柔らかい'],
+      ['Kaisei Opti','JP','見出し明朝'],
+      ['Kaisei Tokumin','JP','太め明朝'],
+      ['Yusei Magic','JP','手書きポップ'],
+      ['DotGothic16','JP','ドット / レトロ'],
+      ['Dela Gothic One','JP','極太インパクト'],
+      ['Reggae One','JP','コミカル見出し'],
+      ['Rampart One','JP','縁取り装飾'],
+      ['Stick','JP','細長い個性派'],
+      ['Hina Mincho','JP','繊細な和風'],
+      ['New Tegomin','JP','筆感のある明朝'],
+      ['Mochiy Pop One','JP','太ポップ'],
+      ['Mochiy Pop P One','JP','丸みポップ'],
+      ['BIZ UDGothic','JP','UDゴシック'],
+      ['BIZ UDPGothic','JP','プロポーショナルUD'],
+      ['BIZ UDMincho','JP','UD明朝'],
+      ['BIZ UDPMincho','JP','プロポーショナルUD明朝'],
+      ['RocknRoll One','JP','ロック系見出し'],
+      ['Train One','JP','ライン装飾'],
+      ['Darumadrop One','JP','太く丸い装飾'],
+      ['Montserrat','EN','MV定番モダン'],
+      ['Bebas Neue','EN','縦長インパクト'],
+      ['Oswald','EN','凝縮サンセリフ'],
+      ['Anton','EN','極太見出し'],
+      ['Helvetica','EN','クリーン定番'],
+      ['Astloch','EN','欠けた古文書風'],
+      ['Black Ops One','EN','映画タイトル / 軍事ステンシル'],
+      ['Bungee','EN','大型ポップタイトル'],
+      ['Bungee Hairline','EN','細線ネオン見出し'],
+      ['Bungee Inline','EN','インライン装飾'],
+      ['Bungee Outline','EN','アウトライン大型文字'],
+      ['Bungee Shade','EN','影付き映画タイトル'],
+      ['Butcherman','EN','ホラー / 切り裂き'],
+      ['Codystar','EN','粒子ノイズ / 点描'],
+      ['Creepster','EN','ホラー / 不穏'],
+      ['Diplomata SC','EN','重厚シネマタイトル'],
+      ['Eater','EN','崩れたホラー'],
+      ['Faster One','EN','スピード線 / 疾走感'],
+      ['Frijole','EN','歪みポップ / 不気味'],
+      ['Germania One','EN','黒幕系タイトル'],
+      ['Geostar','EN','幾何学ワイヤー'],
+      ['Geostar Fill','EN','幾何学ノイズ塗り'],
+      ['Grenze Gotisch','EN','ダークゴシック'],
+      ['Jacquard 12','EN','粗い織り / レトロ欠け'],
+      ['Jacquard 12 Charted','EN','グリッド欠け'],
+      ['Jersey 10','EN','ゲーム字幕 / ピクセル'],
+      ['Jersey 15','EN','ピクセル見出し'],
+      ['Jersey 20','EN','角ばったデジタル'],
+      ['Jersey 25 Charted','EN','チャート状ピクセル'],
+      ['Lacquer','EN','手描きノイズ'],
+      ['Libre Barcode 39','EN','バーコード / 断片'],
+      ['Metal Mania','EN','メタル / 暗黒MV'],
+      ['Monofett','EN','太字ブロック欠け'],
+      ['Monoton','EN','ネオンライン'],
+      ['Nosifer','EN','血糊ホラー'],
+      ['Pirata One','EN','荒い映画タイトル'],
+      ['Pixelify Sans','EN','ピクセル字幕'],
+      ['Plaster','EN','欠けたステンシル'],
+      ['Press Start 2P','EN','8bit / レトロゲーム'],
+      ['Rubik Beastly','EN','獣感 / 破壊的'],
+      ['Rubik Broken Fax','EN','FAXノイズ / 破損'],
+      ['Rubik Burned','EN','焼け跡 / 欠損'],
+      ['Rubik Dirt','EN','砂塵 / 汚れ'],
+      ['Rubik Glitch','EN','グリッチMV'],
+      ['Rubik Glitch Pop','EN','ポップグリッチ'],
+      ['Rubik Iso','EN','立体アイソメトリック'],
+      ['Rubik Maze','EN','迷路 / サイバー'],
+      ['Rubik Microbe','EN','有機ノイズ'],
+      ['Rubik Moonrocks','EN','岩肌 / 破片'],
+      ['Rubik Puddles','EN','液体ノイズ'],
+      ['Rubik Spray Paint','EN','スプレー / ストリート'],
+      ['Rubik Vinyl','EN','レコード溝 / 波形'],
+      ['Rubik Wet Paint','EN','滲み / ペイント'],
+      ['Special Elite','EN','タイプライター / 劣化'],
+      ['Wallpoet','EN','SF映画タイトル']
+    ];
+    const fonts = fontCatalog.map(([name]) => name);
+    const effects = ['None','Pop','Slide','Shake','Zoom','Blur','Glitch','Bounce','Neon','Glow','Wiggle','Floating','Vibration','Slow Zoom','Neon Flicker','Echo / Trail','Color Cycle','Chromatic Aberration','Cinematic Pan','Text Scramble Loop','Circular Spin','Multi-Reflection','Heartbeat Pulse','Shadow Drift','Solemn Scale','3D Text Tunnel'];
+    const textEffects = ['None','Fade In','Typewriter','Bounce In','Zoom In','Slide In','Glitch Entry','Pop In','Slide & Stop','Whip Pan','3D Flip','Elastic Scale','Staggered Bounce','Scatter to Gather','Tracking Expander','Random Decode','Mask Wipe','Kinetic Impact','Drop & Bounce','Blur Reveal','Shatter Fade','Rotate & Scale','Word by Word Fade','Flash & Fade','Ghostly Rise','TV Static Reveal','Matrix Rain','Liquid Melt','Slash Cut-In','Impact Shake & Blur','Pixelate Transition','Spinning Drop','Char Fade In/Out','Char Rotate Drop (Top)','Char Rotate Drop (Bottom)','Char Extreme Zoom In','Char Extreme Zoom In/Out','Char Bounce In','Char Radial In','Char Radial Out','Char Radial In/Out','Horizontal Slice Merge','Vertical Slice Merge','3D Circular Pan','3D Depth Flyby','3D Spiral Drop','3D Char Flip Board','Orbit Giant Letters','FPS Letter Rush','Text Tunnel Dive','Spiral Word Galaxy','Impact Billboard 3D','Vocaloid Grid City','Data Glitch Corridor','Rotating Lyrics Ring','Character Cannon','Scatter To Camera','Camera Whip Words','Deep Focus Swap','Falling Text Abyss','Exploded Word Rebuild','Vortex Karaoke','Orbit Camera Snap','Floating Caption Field','Perspective Typewriter 3D','Neon Depth Chase','Broken Subtitle Space','Lyrics Roller Coaster','Massive Word Eclipse'];
+    const threeTextEffects = ['Orbit Giant Letters','FPS Letter Rush','Text Tunnel Dive','Spiral Word Galaxy','Impact Billboard 3D','Vocaloid Grid City','Data Glitch Corridor','Rotating Lyrics Ring','Character Cannon','Scatter To Camera','Camera Whip Words','Deep Focus Swap','Falling Text Abyss','Exploded Word Rebuild','Vortex Karaoke','Orbit Camera Snap','Floating Caption Field','Perspective Typewriter 3D','Neon Depth Chase','Broken Subtitle Space','Lyrics Roller Coaster','Massive Word Eclipse'];
+    const keyframeProperties = [
+      ['x', 'X位置'],
+      ['y', 'Y位置'],
+      ['scale', '倍率'],
+      ['rotation', '角度'],
+      ['textColor', '文字色'],
+      ['textBackgroundColor', '文字背景色'],
+      ['outlineColor', '枠線色'],
+      ['outlineWidth', '枠線幅'],
+      ['effectIntensity', 'エフェクト強度'],
+      ['effectStartFrame', 'エフェクト開始'],
+      ['effectEndFrame', 'エフェクト終了'],
+      ['effectSpeed', '表示速度']
+    ];
+    let activeTab = 'input';
+    let selectedId = null;
+    let currentFrame = 0;
+    let playing = false;
+    let previewDragEnabled = false;
+    let snapEnabled = true;
+    let zoom = 2;
+    let timelineDrag = null;
+    let previewDrag = null;
+    let keyframeDrag = null;
+    let layoutDrag = null;
+    let panelDrag = null;
+    let undoStack = [];
+    let redoStack = [];
+    let audioFile = null;
+    let audioBufferData = null;
+    let renderStatusText = '';
+    let isRendering = false;
+    let globalSettings = {
+      font: 'Noto Sans JP',
+      textEffect: 'Bounce In',
+      effectSpeed: 5,
+      textColor: '#ffffff',
+      textBackgroundColor: '#d8b9aa',
+      outlineColor: '#000000',
+      outlineWidth: 2,
+      exportFormat: 'webm',
+      exportQuality: 8
+    };
+    let lyrics = [
+      makeBlock('l1', '愛して もっと 深く', 0, 0, 60, -100, 'Pop', '#ffffff'),
+      makeBlock('l2', '壊れるまで', 1, 45, 120, 100, 'Glitch', '#ef4444')
+    ];
+
+    function makeBlock(id, text, track, startFrame, endFrame, y, effect, textColor) {
+      return {
+        id, text, track, startFrame, endFrame,
+        scale: 1, x: 0, y, rotation: 0,
+        effect, effectIntensity: 5,
+        effectStartFrame: startFrame,
+        effectEndFrame: Math.min(endFrame, startFrame + 45),
+        font: globalSettings?.font || 'Noto Sans JP',
+        textEffect: globalSettings?.textEffect || 'Bounce In',
+        effectSpeed: globalSettings?.effectSpeed || 5,
+        textColor,
+        textBackgroundColor: undefined,
+        outlineColor: globalSettings?.outlineColor || '#000000',
+        outlineWidth: globalSettings?.outlineWidth ?? 2,
+        keyframes: []
+      };
+    }
+    function duration() {
+      const audioFrames = audioFile?.duration ? Math.ceil(audioFile.duration * fps) : 0;
+      return Math.max(300, audioFrames, ...lyrics.map(l => l.endFrame + 30));
+    }
+    function pxPerFrame() {
+      return zoom * 4;
+    }
+    function timelineWidth() {
+      return Math.max(900, duration() * pxPerFrame());
+    }
+    function visibleTrackCount() {
+      return 10;
+    }
+    function frameToX(frame) {
+      return frame * pxPerFrame();
+    }
+    function xToFrame(x) {
+      const raw = Math.round(x / pxPerFrame());
+      return snapEnabled ? Math.round(raw / 5) * 5 : raw;
+    }
+    function activeLyrics(frame = currentFrame) {
+      return lyrics.filter(l => frame >= l.startFrame && frame < l.endFrame);
+    }
+    function snapshotState() {
+      return JSON.stringify({lyrics, globalSettings, selectedId, activeTab, currentFrame});
+    }
+    function restoreState(snapshot) {
+      const s = JSON.parse(snapshot);
+      lyrics = s.lyrics;
+      globalSettings = s.globalSettings;
+      selectedId = s.selectedId;
+      activeTab = s.activeTab;
+      currentFrame = s.currentFrame;
+    }
+    function recordHistory() {
+      undoStack.push(snapshotState());
+      if (undoStack.length > 10) undoStack.shift();
+      redoStack = [];
+    }
+    function recordSnapshot(snapshot) {
+      if (!snapshot || snapshot === snapshotState()) return;
+      undoStack.push(snapshot);
+      if (undoStack.length > 10) undoStack.shift();
+      redoStack = [];
+    }
+    function undo() {
+      if (!undoStack.length) return;
+      redoStack.push(snapshotState());
+      if (redoStack.length > 10) redoStack.shift();
+      restoreState(undoStack.pop());
+      render();
+    }
+    function redo() {
+      if (!redoStack.length) return;
+      undoStack.push(snapshotState());
+      if (undoStack.length > 10) undoStack.shift();
+      restoreState(redoStack.pop());
+      render();
+    }
+    function render() {
+      const total = duration();
+      currentFrame = Math.max(0, Math.min(currentFrame, total));
+      document.getElementById('timeText').textContent = (currentFrame / fps).toFixed(2) + 's';
+      document.getElementById('durationText').textContent = (total / fps).toFixed(2) + 's';
+      document.getElementById('frameText').textContent = currentFrame + 'f';
+      document.getElementById('durationFrameText').textContent = total + 'f';
+      document.getElementById('selectedLabel').textContent = selectedId ? `選択中: ${selectedBlock()?.text || selectedId}` : '未選択';
+      document.getElementById('undoButton').disabled = !undoStack.length;
+      document.getElementById('redoButton').disabled = !redoStack.length;
+      document.getElementById('playButton').textContent = playing ? '⏸' : '▶';
+      const previewToggle = document.getElementById('previewDragToggle');
+      if (previewToggle) previewToggle.checked = previewDragEnabled;
+      const snapToggle = document.getElementById('snapToggle');
+      if (snapToggle) snapToggle.checked = snapEnabled;
+      const zoomRange = document.getElementById('zoomRange');
+      if (zoomRange) zoomRange.value = zoom;
+      renderStage();
+      renderTimeline();
+      renderTabs();
+    }
+    function selectedBlock() {
+      return lyrics.find(l => l.id === selectedId);
+    }
+    function withKeyframes(block, frame) {
+      const result = {...block};
+      keyframeProperties.forEach(([property]) => {
+        result[property] = keyframedValue(block, property, frame);
+      });
+      return result;
+    }
+    function keyframedValue(block, property, frame) {
+      const frames = (block.keyframes || [])
+        .filter(k => k.property === property)
+        .sort((a, b) => a.frame - b.frame);
+      if (!frames.length) return block[property];
+      if (frame <= frames[0].frame) return frames[0].value;
+      if (frame >= frames[frames.length - 1].frame) return frames[frames.length - 1].value;
+      const nextIndex = frames.findIndex(k => k.frame >= frame);
+      const prev = frames[nextIndex - 1];
+      const next = frames[nextIndex];
+      if (!prev || !next) return block[property];
+      const progress = (frame - prev.frame) / Math.max(1, next.frame - prev.frame);
+      if (isColorValue(prev.value) && isColorValue(next.value)) return mixColor(prev.value, next.value, progress);
+      const a = Number(prev.value);
+      const b = Number(next.value);
+      if (Number.isFinite(a) && Number.isFinite(b)) return a + (b - a) * progress;
+      return progress < 1 ? prev.value : next.value;
+    }
+    function isColorValue(value) {
+      return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+    }
+    function mixColor(a, b, t) {
+      const pa = hexToRgb(a);
+      const pb = hexToRgb(b);
+      return '#' + [0,1,2].map(i => Math.round(pa[i] + (pb[i] - pa[i]) * t).toString(16).padStart(2, '0')).join('');
+    }
+    function hexToRgb(hex) {
+      return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+    }
+    function getTextBackgroundColor(block) {
+      return block.textBackgroundColor ?? globalSettings.textBackgroundColor ?? 'transparent';
+    }
+    function getOutlineColor(block) {
+      return block.outlineColor ?? globalSettings.outlineColor ?? 'transparent';
+    }
+    function getOutlineWidth(block) {
+      return Math.max(0, Number(block.outlineWidth ?? globalSettings.outlineWidth ?? 0));
+    }
+    function getOutlineShadow(block) {
+      const color = getOutlineColor(block);
+      const width = getOutlineWidth(block);
+      if (!width || color === 'transparent') return '';
+      const parts = [];
+      for (let x = -width; x <= width; x += width) {
+        for (let y = -width; y <= width; y += width) {
+          if (x || y) parts.push(`${x}px ${y}px 0 ${color}`);
+        }
+      }
+      return parts.length ? ', ' + parts.join(', ') : '';
+    }
+    function clamp01(value) { return Math.max(0, Math.min(1, value)); }
+    function easeOut(value) { value = clamp01(value); return 1 - Math.pow(1 - value, 3); }
+    function elastic(value) {
+      value = clamp01(value);
+      if (value === 0 || value === 1) return value;
+      return Math.pow(2, -8 * value) * Math.sin((value * 10 - .75) * (Math.PI * 2 / 3)) + 1;
+    }
+    function wave(frame, speed, phase = 0) { return Math.sin(frame * speed + phase); }
+    function scrambleText(text, frame) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&?';
+      return [...String(text)].map((char, index) => {
+        if (!char.trim()) return char;
+        if (frame > 16 + index * 3) return char;
+        return chars[Math.abs(frame + index * 7) % chars.length];
+      }).join('');
+    }
+    function getVisual(block, frame) {
+      block = withKeyframes(block, frame);
+      const entryFrames = Math.max(1, Number(block.effectSpeed) * 4);
+      const entryProgress = Math.max(0, Math.min(1, (frame - block.startFrame) / entryFrames));
+      const exitProgress = clamp01((frame - block.endFrame + entryFrames) / entryFrames);
+      const effectActive = block.effect !== 'None' && frame >= block.effectStartFrame && frame < block.effectEndFrame;
+      let x = Number(block.x) || 0;
+      let y = Number(block.y) || 0;
+      let scale = Number(block.scale) || 1;
+      let skew = 0;
+      let opacity = 1;
+      let blur = 0;
+      const filterParts = [];
+      let shadow = `0 0 10px rgba(0,0,0,.5)${getOutlineShadow(block)}`;
+      let rotation = Number(block.rotation) || 0;
+      let extraTransform = '';
+      let clipPath = '';
+      let letterSpacing = null;
+      let color = null;
+      let text = block.text;
+      if (block.textEffect === 'Fade In') opacity = entryProgress;
+      if (block.textEffect === 'Zoom In') { opacity = entryProgress; scale *= .6 + entryProgress * .4; }
+      if (block.textEffect === 'Bounce In') { opacity = entryProgress; scale *= .2 + Math.sin(entryProgress * Math.PI / 2) * .9; }
+      if (block.textEffect === 'Slide In') { opacity = Math.min(1, entryProgress * 1.6); x += (1 - entryProgress) * -120; }
+      if (block.textEffect === 'Glitch Entry' && entryProgress < 1) {
+        x += ((frame % 2) ? 1 : -1) * 10 * (1 - entryProgress);
+        shadow += ', 3px 0 #06b6d4, -3px 0 #ef4444';
+      }
+      if (block.textEffect === 'Pop In') { opacity *= entryProgress; scale *= entryProgress < .65 ? Math.max(.01, entryProgress * 1.85) : 1.2 - (entryProgress - .65) * .57; }
+      if (block.textEffect === 'Slide & Stop') { opacity *= entryProgress; x += (1 - easeOut(entryProgress)) * -900; }
+      if (block.textEffect === 'Whip Pan') { opacity *= entryProgress; x += (1 - entryProgress) * -720; skew += (1 - entryProgress) * -24; }
+      if (block.textEffect === '3D Flip') { opacity *= entryProgress; extraTransform += ` perspective(900px) rotateX(${(1 - entryProgress) * 82}deg) translateZ(${(1 - entryProgress) * -180}px)`; }
+      if (block.textEffect === 'Elastic Scale') { opacity *= entryProgress; extraTransform += ` scaleX(${.65 + elastic(entryProgress) * .35}) scaleY(${.25 + elastic(entryProgress) * .75})`; }
+      if (['Typewriter','Char Fade In/Out'].includes(block.textEffect)) opacity *= entryProgress * (1 - exitProgress);
+      if (['Staggered Bounce','Char Bounce In'].includes(block.textEffect)) { opacity *= entryProgress; scale *= .72 + elastic(entryProgress) * .28; y += (1 - elastic(entryProgress)) * 38; }
+      if (block.textEffect === 'Tracking Expander') { opacity *= entryProgress; letterSpacing = -8 + entryProgress * 10; }
+      if (block.textEffect === 'Random Decode') { opacity *= entryProgress; text = scrambleText(block.text, frame); }
+      if (block.textEffect === 'Mask Wipe') clipPath = `inset(0 ${100 - entryProgress * 100}% 0 0)`;
+      if (block.textEffect === 'Kinetic Impact') { opacity *= entryProgress; scale *= 1 + (1 - easeOut(entryProgress)) * 3.5; blur += (1 - entryProgress) * 8; }
+      if (block.textEffect === 'Drop & Bounce') { opacity *= entryProgress; y += (1 - elastic(entryProgress)) * -240 + Math.sin(entryProgress * Math.PI * 4) * (1 - entryProgress) * 35; }
+      if (block.textEffect === 'Blur Reveal') { opacity *= entryProgress; blur += (1 - entryProgress) * 22; }
+      if (block.textEffect === 'Shatter Fade') { opacity *= 1 - exitProgress; x += -90 * exitProgress; y += 160 * exitProgress; rotation += -80 * exitProgress; }
+      if (block.textEffect === 'Rotate & Scale') { opacity *= entryProgress; scale *= 3.2 - entryProgress * 2.2; rotation += (1 - entryProgress) * 720; }
+      if (block.textEffect === 'Word by Word Fade') { opacity *= entryProgress * (1 - exitProgress); y += (1 - entryProgress) * 14; }
+      if (block.textEffect === 'Flash & Fade') { opacity *= entryProgress * (1 - exitProgress * .8); filterParts.push(`brightness(${1 + Math.max(0, 1 - (frame - block.startFrame) / 10) * 4})`); shadow += ', 0 0 28px white'; }
+      if (block.textEffect === 'Ghostly Rise') { opacity *= entryProgress * (1 - exitProgress); y += (1 - entryProgress) * 60 - exitProgress * 30; blur += (1 - entryProgress + exitProgress) * 12; }
+      if (block.textEffect === 'TV Static Reveal') { opacity *= entryProgress; x += wave(frame, 1.7) * (1 - entryProgress) * 24; filterParts.push(`contrast(${1 + (1 - entryProgress) * 2})`); }
+      if (block.textEffect === 'Matrix Rain') { opacity *= entryProgress; y += (1 - entryProgress) * -260; if (entryProgress < .9) text = scrambleText(block.text, frame); }
+      if (block.textEffect === 'Liquid Melt') { opacity *= 1 - exitProgress; y += exitProgress * 90; blur += exitProgress * 10; extraTransform += ` scaleY(${1 + exitProgress * 1.8})`; }
+      if (block.textEffect === 'Slash Cut-In') { opacity *= entryProgress; clipPath = `polygon(${100 - entryProgress * 100}% 0, 100% 0, ${entryProgress * 100}% 100%, 0 100%)`; skew += (1 - entryProgress) * -12; }
+      if (block.textEffect === 'Impact Shake & Blur') { opacity *= entryProgress; x += wave(frame, 2.4) * (1 - entryProgress) * 35; y += wave(frame, 1.8, 1) * (1 - entryProgress) * 20; blur += (1 - entryProgress) * 14; }
+      if (block.textEffect === 'Pixelate Transition') { opacity *= entryProgress; blur += (1 - entryProgress) * 16; filterParts.push(`contrast(${1 + (1 - entryProgress) * 4})`); }
+      if (['Spinning Drop','Char Rotate Drop (Top)'].includes(block.textEffect)) { opacity *= entryProgress; y += (1 - entryProgress) * -260; rotation += (1 - entryProgress) * 560; }
+      if (block.textEffect === 'Char Rotate Drop (Bottom)') { opacity *= entryProgress; y += (1 - entryProgress) * 220; rotation += (1 - entryProgress) * -500; }
+      if (block.textEffect === 'Char Extreme Zoom In') { opacity *= entryProgress; scale *= 7 - entryProgress * 6; }
+      if (block.textEffect === 'Char Extreme Zoom In/Out') { opacity *= entryProgress * (1 - exitProgress); scale *= 7 - entryProgress * 6 + exitProgress * 6; }
+      if (['Scatter to Gather','Char Radial In','Char Radial Out','Char Radial In/Out','3D Circular Pan','3D Depth Flyby','3D Spiral Drop','3D Char Flip Board'].includes(block.textEffect)) { opacity *= entryProgress * (1 - exitProgress); x += Math.cos(entryProgress * 8) * (1 - entryProgress) * 180; y += Math.sin(entryProgress * 8) * (1 - entryProgress) * 130; rotation += (1 - entryProgress) * 360; }
+      if (block.textEffect === 'Horizontal Slice Merge') { opacity *= entryProgress; x += (1 - entryProgress) * (frame % 2 === 0 ? -140 : 140); }
+      if (block.textEffect === 'Vertical Slice Merge') { opacity *= entryProgress; y += (1 - entryProgress) * (frame % 2 === 0 ? -110 : 110); }
+      if (threeTextEffects.includes(block.textEffect)) {
+        const local = frame - block.startFrame;
+        const p3 = clamp01((frame - block.startFrame) / Math.max(1, block.endFrame - block.startFrame));
+        opacity *= Math.max(entryProgress, .15) * (1 - exitProgress);
+        shadow += ', 0 0 24px #67e8f9, 0 0 42px #fb7185';
+        filterParts.push(`saturate(${1.2 + Math.sin(local * .08) * .25})`);
+        if (block.textEffect === 'Orbit Giant Letters' || block.textEffect === 'Rotating Lyrics Ring') extraTransform += ` perspective(900px) rotateY(${local * 5}deg) translateZ(${Math.sin(local * .05) * 130}px)`;
+        else if (block.textEffect === 'FPS Letter Rush' || block.textEffect === 'Character Cannon' || block.textEffect === 'Neon Depth Chase') { scale *= 5 - entryProgress * 4; extraTransform += ` perspective(900px) translateZ(${(1 - entryProgress) * -620}px) rotateX(${(1 - entryProgress) * 80}deg)`; }
+        else if (block.textEffect === 'Text Tunnel Dive' || block.textEffect === 'Data Glitch Corridor' || block.textEffect === 'Lyrics Roller Coaster') { letterSpacing = 8 + Math.sin(local * .08) * 5; extraTransform += ` perspective(900px) rotateY(${Math.sin(local * .05) * 42}deg) translateZ(${Math.sin(local * .09) * 180}px)`; }
+        else if (block.textEffect === 'Spiral Word Galaxy' || block.textEffect === 'Vortex Karaoke') { rotation += local * 3; x += Math.cos(p3 * 14) * (1 - entryProgress) * 180; y += Math.sin(p3 * 14) * (1 - entryProgress) * 120; extraTransform += ` perspective(900px) rotateY(${local * 2}deg)`; }
+        else if (block.textEffect === 'Exploded Word Rebuild' || block.textEffect === 'Scatter To Camera' || block.textEffect === 'Floating Caption Field') { x += Math.cos(local * .13) * (1 - entryProgress) * 260; y += Math.sin(local * .17) * (1 - entryProgress) * 180; rotation += (1 - entryProgress) * 540; extraTransform += ` perspective(900px) translateZ(${(1 - entryProgress) * -320}px)`; }
+        else if (block.textEffect === 'Massive Word Eclipse') { scale *= 2.4; x += -500 + p3 * 900; extraTransform += ' perspective(900px) rotateY(10deg)'; }
+        else { extraTransform += ` perspective(900px) rotateY(${(1 - entryProgress) * 120 + local * 1.5}deg) translateZ(${(1 - entryProgress) * -240}px)`; }
+      }
+      if (effectActive) {
+        const intensity = Number(block.effectIntensity) || 0;
+        const span = Math.max(1, block.effectEndFrame - block.effectStartFrame);
+        const phase = (frame - block.effectStartFrame) / span;
+        if (block.effect === 'Shake') { x += ((frame % 2) ? 1 : -1) * intensity; y += ((frame % 3) - 1) * intensity; }
+        if (block.effect === 'Glitch') { skew = ((frame % 3) - 1) * intensity * 1.5; shadow += ', 4px 0 #06b6d4, -4px 0 #ef4444'; }
+        if (block.effect === 'Bounce') y += Math.sin((frame - block.effectStartFrame) * .35) * intensity * 3;
+        if (block.effect === 'Zoom' || block.effect === 'Pop') scale *= 1 + Math.sin(phase * Math.PI) * intensity * .06;
+        if (block.effect === 'Blur') blur += Math.max(0, (1 - phase) * intensity);
+        if (block.effect === 'Neon' || block.effect === 'Glow') shadow += `, 0 0 ${8 + intensity * 3}px ${block.textColor || globalSettings.textColor}`;
+        if (block.effect === 'Wiggle') { y += wave(frame, .12) * 7; rotation += wave(frame, .09) * 2.8; }
+        if (block.effect === 'Floating') y += wave(frame, .045) * 18;
+        if (block.effect === 'Vibration') { x += wave(frame, 2.7) * 4; y += wave(frame, 3.1, 1) * 3; }
+        if (block.effect === 'Slow Zoom' || block.effect === 'Solemn Scale') scale *= 1 + wave(frame, .012) * .035;
+        if (block.effect === 'Neon Flicker') { opacity *= frame % 13 < 2 ? .55 : 1; shadow += `, 0 0 10px ${block.textColor || globalSettings.textColor}, 0 0 42px ${block.textColor || globalSettings.textColor}`; }
+        if (block.effect === 'Echo / Trail') shadow += ', -10px 0 rgba(255,255,255,.28), -20px 0 rgba(255,255,255,.16), -30px 0 rgba(255,255,255,.08)';
+        if (block.effect === 'Color Cycle') color = `hsl(${(frame * 4) % 360}, 90%, 62%)`;
+        if (block.effect === 'Chromatic Aberration') shadow += `, ${wave(frame, .16) * 5}px 0 #ff3355, ${wave(frame, .13, 2) * -5}px 0 #33ccff`;
+        if (block.effect === 'Cinematic Pan') x += wave(frame, .01) * 90;
+        if (block.effect === 'Text Scramble Loop') { opacity *= frame % 40 < 8 ? .72 : 1; text = scrambleText(block.text, frame); }
+        if (block.effect === 'Circular Spin') rotation += frame * .28;
+        if (block.effect === 'Multi-Reflection') shadow += ', 18px 0 rgba(255,255,255,.22), -18px 0 rgba(255,255,255,.22), 0 18px rgba(255,255,255,.14)';
+        if (block.effect === 'Heartbeat Pulse') { const beat = frame % 22; scale *= beat < 5 ? 1 + (5 - beat) * .045 : 1; if (beat < 5) shadow += `, 0 0 26px ${block.textColor || globalSettings.textColor}`; }
+        if (block.effect === 'Shadow Drift') shadow += `, ${10 + wave(frame, .05) * 10}px 8px rgba(0,0,0,.45)`;
+        if (block.effect === '3D Text Tunnel') { letterSpacing = 4 + wave(frame, .015) * 2; extraTransform += ` perspective(900px) translateZ(${wave(frame, .018) * 140}px)`; }
+      }
+      const filter = [`blur(${blur}px)`, ...filterParts].filter(part => part && part !== 'blur(0px)').join(' ') || 'none';
+      return {x, y, scale, skew, opacity, filter, shadow, rotation, extraTransform, clipPath, letterSpacing, color, text};
+    }
+    function renderStage() {
+      const stage = document.getElementById('stage');
+      stage.classList.toggle('drag-enabled', previewDragEnabled);
+      stage.innerHTML = '';
+      activeLyrics().forEach(block => {
+        const animated = withKeyframes(block, currentFrame);
+        const visual = getVisual(block, currentFrame);
+        const el = document.createElement('div');
+        el.className = 'lyric';
+        el.dataset.id = block.id;
+        el.textContent = visual.text ?? animated.text;
+        el.style.color = visual.color || animated.textColor || globalSettings.textColor;
+        el.style.backgroundColor = getTextBackgroundColor(animated);
+        el.style.fontFamily = animated.font || globalSettings.font;
+        el.style.opacity = visual.opacity;
+        el.style.filter = visual.filter;
+        el.style.textShadow = visual.shadow;
+        el.style.clipPath = visual.clipPath || '';
+        el.style.letterSpacing = visual.letterSpacing === null ? '' : `${visual.letterSpacing}px`;
+        el.style.transform = `translate(calc(-50% + ${visual.x}px), calc(-50% + ${visual.y}px)) rotate(${visual.rotation}deg) scale(${visual.scale}) skewX(${visual.skew}deg) ${visual.extraTransform || ''}`;
+        el.onpointerdown = e => startPreviewDrag(e, block);
+        el.onmousedown = e => startPreviewDrag(e, block);
+        stage.appendChild(el);
+      });
+    }
+    function renderTimeline() {
+      const content = document.getElementById('timelineContent');
+      const total = duration();
+      const width = timelineWidth();
+      content.style.width = width + 'px';
+      content.innerHTML = `<div class="playhead" style="left:${frameToX(currentFrame)}px"></div>`;
+      const ruler = document.createElement('div');
+      ruler.className = 'ruler';
+      for (let frame = 0; frame <= total; frame += fps) {
+        const tick = document.createElement('div');
+        tick.className = 'tick';
+        tick.style.left = frameToX(frame) + 'px';
+        tick.textContent = `${Math.round(frame / fps)}s`;
+        ruler.appendChild(tick);
+      }
+      content.appendChild(ruler);
+      const wave = document.createElement('div');
+      wave.className = 'waveform';
+      wave.innerHTML = '<canvas id="waveCanvas"></canvas>';
+      content.appendChild(wave);
+      drawWaveformLater(width);
+      const trackCount = visibleTrackCount();
+      for (let track = 0; track < trackCount; track++) {
+        const row = document.createElement('div');
+        row.className = 'track';
+        row.innerHTML = `<div class="track-label">TRACK ${track + 1}</div>`;
+        lyrics.filter(l => l.track === track).forEach(block => {
+          const el = document.createElement('div');
+          el.className = `block ${selectedId === block.id ? 'selected' : ''}`;
+          el.style.left = frameToX(block.startFrame) + 'px';
+          el.style.width = Math.max(18, frameToX(block.endFrame - block.startFrame)) + 'px';
+          el.innerHTML = `<span class="resize-handle start" data-mode="resize-start"></span><span style="pointer-events:none;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(block.text || '(empty)')}</span><span class="resize-handle end" data-mode="resize-end"></span>`;
+          el.onmousedown = e => startTimelineDrag(e, block, e.target.dataset.mode || 'move');
+          row.appendChild(el);
+          (block.keyframes || []).forEach(k => {
+            const marker = document.createElement('div');
+            marker.className = `keyframe-marker ${selectedId === block.id ? 'selected' : ''}`;
+            marker.title = `${keyframeLabel(k.property)}: ${k.value} @ ${k.frame}f`;
+            marker.style.left = frameToX(k.frame) + 'px';
+            marker.onmousedown = e => startKeyframeDrag(e, block, k);
+            row.appendChild(marker);
+          });
+        });
+        content.appendChild(row);
+      }
+      content.onclick = e => {
+        if (e.target.closest('.block')) return;
+        const rect = content.getBoundingClientRect();
+        currentFrame = Math.max(0, Math.min(total, xToFrame(e.clientX - rect.left + document.getElementById('timelineScroll').scrollLeft)));
+        syncAudioToFrame();
+        render();
+      };
+    }
+    function drawWaveformLater(width) {
+      requestAnimationFrame(() => {
+        const canvas = document.getElementById('waveCanvas');
+        if (!canvas) return;
+        canvas.width = width;
+        canvas.height = 42;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.strokeStyle = 'rgba(59,130,246,.9)';
+        ctx.beginPath();
+        const mid = canvas.height / 2;
+        if (!audioBufferData) {
+          ctx.strokeStyle = 'rgba(255,255,255,.16)';
+          ctx.moveTo(0, mid); ctx.lineTo(canvas.width, mid); ctx.stroke();
+          return;
+        }
+        for (let x = 0; x < canvas.width; x++) {
+          const start = Math.floor((x / canvas.width) * audioBufferData.length);
+          const end = Math.floor(((x + 1) / canvas.width) * audioBufferData.length);
+          let min = 1, max = -1;
+          for (let i = start; i < end; i++) {
+            const v = audioBufferData[i] || 0;
+            if (v < min) min = v;
+            if (v > max) max = v;
+          }
+          ctx.moveTo(x, mid + min * mid);
+          ctx.lineTo(x, mid + max * mid);
+        }
+        ctx.stroke();
+      });
+    }
+    function startTimelineDrag(e, block, mode) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectedId = block.id;
+      activeTab = 'edit';
+      timelineDrag = {id:block.id, x:e.clientX, y:e.clientY, start:block.startFrame, end:block.endFrame, track:Number(block.track)||0, mode, before:snapshotState()};
+      render();
+    }
+    function startKeyframeDrag(e, block, keyframe) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectedId = block.id;
+      activeTab = 'edit';
+      keyframeDrag = {blockId:block.id, keyframeId:keyframe.id, x:e.clientX, frame:keyframe.frame, before:snapshotState()};
+      render();
+    }
+    function startPreviewDrag(e, block) {
+      if (!previewDragEnabled || previewDrag) return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectedId = block.id;
+      activeTab = 'edit';
+      previewDrag = {id:block.id, x:e.clientX, y:e.clientY, startX:Number(block.x)||0, startY:Number(block.y)||0, before:snapshotState()};
+      render();
+    }
+    function startLayoutDrag(e) {
+      e.preventDefault();
+      const left = document.querySelector('.left');
+      const preview = document.querySelector('.preview-panel');
+      const timeline = document.querySelector('.timeline-panel');
+      if (!left || !preview || !timeline) return;
+      layoutDrag = {
+        y: e.clientY,
+        previewHeight: preview.getBoundingClientRect().height,
+        leftHeight: left.getBoundingClientRect().height
+      };
+      document.getElementById('verticalSplit')?.classList.add('dragging');
+    }
+    function moveLayoutDrag(e) {
+      const left = document.querySelector('.left');
+      if (!layoutDrag || !left) return;
+      const minPreview = 220;
+      const minTimeline = 220;
+      const reserved = 34 + 8 + 44 + 12 * 4;
+      const maxPreview = Math.max(minPreview, layoutDrag.leftHeight - minTimeline - reserved);
+      const next = Math.max(minPreview, Math.min(maxPreview, layoutDrag.previewHeight + (e.clientY - layoutDrag.y)));
+      left.style.setProperty('--preview-height', `${next}px`);
+    }
+    function stopLayoutDrag() {
+      if (!layoutDrag) return;
+      layoutDrag = null;
+      document.getElementById('verticalSplit')?.classList.remove('dragging');
+    }
+    function startPanelDrag(e) {
+      e.preventDefault();
+      const app = document.querySelector('.app');
+      const right = document.querySelector('.right');
+      if (!app || !right) return;
+      panelDrag = {
+        x: e.clientX,
+        rightWidth: right.getBoundingClientRect().width,
+        appWidth: app.getBoundingClientRect().width
+      };
+      document.getElementById('horizontalSplit')?.classList.add('dragging');
+    }
+    function movePanelDrag(e) {
+      const app = document.querySelector('.app');
+      if (!panelDrag || !app) return;
+      const minRight = 340;
+      const maxRight = Math.max(minRight, panelDrag.appWidth * .5);
+      const nextRight = Math.max(minRight, Math.min(maxRight, panelDrag.rightWidth - (e.clientX - panelDrag.x)));
+      app.style.setProperty('--right-panel-width', `${nextRight}px`);
+    }
+    function stopPanelDrag() {
+      if (!panelDrag) return;
+      panelDrag = null;
+      document.getElementById('horizontalSplit')?.classList.remove('dragging');
+    }
+    function movePreviewDrag(e) {
+      const dx = e.clientX - previewDrag.x;
+      const dy = e.clientY - previewDrag.y;
+      lyrics = lyrics.map(l => l.id === previewDrag.id ? {...l, x: Math.round(previewDrag.startX + dx), y: Math.round(previewDrag.startY + dy)} : l);
+      render();
+    }
+    function moveTimelineDrag(e) {
+      const total = duration();
+      const rawDelta = (e.clientX - timelineDrag.x) / pxPerFrame();
+      const delta = e.altKey ? Math.round(rawDelta) : xToFrame(e.clientX - timelineDrag.x);
+      const trackDelta = Math.round((e.clientY - timelineDrag.y) / 48);
+      const nextTrack = Math.max(0, Math.min(9, timelineDrag.track + trackDelta));
+      const len = timelineDrag.end - timelineDrag.start;
+      lyrics = lyrics.map(l => {
+        if (l.id !== timelineDrag.id) return l;
+        if (timelineDrag.mode === 'resize-start') return {...l, startFrame: Math.max(0, Math.min(timelineDrag.end - 1, timelineDrag.start + delta))};
+        if (timelineDrag.mode === 'resize-end') return {...l, endFrame: Math.max(timelineDrag.start + 1, timelineDrag.end + delta)};
+        const nextStart = Math.max(0, Math.min(total - len, timelineDrag.start + delta));
+        return {...l, startFrame: nextStart, endFrame: nextStart + len, track: nextTrack};
+      });
+      render();
+    }
+    function moveKeyframeDrag(e) {
+      const delta = xToFrame(e.clientX - keyframeDrag.x);
+      lyrics = lyrics.map(l => {
+        if (l.id !== keyframeDrag.blockId) return l;
+        return {
+          ...l,
+          keyframes: (l.keyframes || []).map(k => k.id === keyframeDrag.keyframeId ? {
+            ...k,
+            frame: Math.max(l.startFrame, Math.min(l.endFrame, keyframeDrag.frame + delta))
+          } : k)
+        };
+      });
+      render();
+    }
+    document.addEventListener('mousemove', e => {
+      if (layoutDrag) moveLayoutDrag(e);
+      if (panelDrag) movePanelDrag(e);
+      if (previewDrag) movePreviewDrag(e);
+      if (timelineDrag) moveTimelineDrag(e);
+      if (keyframeDrag) moveKeyframeDrag(e);
+    });
+    document.addEventListener('pointermove', e => {
+      if (previewDrag) movePreviewDrag(e);
+    });
+    document.addEventListener('mouseup', () => {
+      if (timelineDrag) recordSnapshot(timelineDrag.before);
+      if (previewDrag) recordSnapshot(previewDrag.before);
+      if (keyframeDrag) recordSnapshot(keyframeDrag.before);
+      timelineDrag = null;
+      previewDrag = null;
+      keyframeDrag = null;
+      stopLayoutDrag();
+      stopPanelDrag();
+    });
+    document.addEventListener('pointerup', () => {
+      if (previewDrag) recordSnapshot(previewDrag.before);
+      previewDrag = null;
+    });
+    function renderTabs() {
+      normalizeTabLabels();
+      document.querySelectorAll('.tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === activeTab));
+      const body = document.getElementById('tabBody');
+      if (activeTab === 'input') body.innerHTML = inputHtml();
+      if (activeTab === 'edit') body.innerHTML = editHtml();
+      if (activeTab === 'output') body.innerHTML = outputHtml();
+      if (activeTab === 'help') body.innerHTML = helpHtml();
+      bindControls();
+    }
+    function normalizeTabLabels() {
+      const labels = {input: '入力・共通', edit: '編集', output: '出力', help: '使い方'};
+      document.querySelectorAll('.tab').forEach(btn => {
+        if (labels[btn.dataset.tab]) btn.textContent = labels[btn.dataset.tab];
+      });
+    }
+    function inputHtml() {
+      return `
+        <div><h4>外部ファイル</h4>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div><label>LRCファイル</label><input id="lrcFile" type="file" accept=".lrc"></div>
+            <div><label>音楽ファイル</label><input id="audioFile" type="file" accept="audio/*">${audioFile ? `<div class="small-note">${escapeHtml(audioFile.name)}</div>` : ''}</div>
+            <div class="row"><button id="exportJson" class="btn ok">プロジェクト保存</button><label class="btn warn" style="text-align:center;color:#fff;margin:0;">プロジェクト読込<input id="importJson" type="file" accept=".json" style="display:none;"></label></div>
+          </div>
+        </div>
+        <div class="section"><h4>歌詞共通設定</h4>
+          ${fontPicker('gFont','フォント', globalSettings.font)}
+          ${effectPicker('gTextEffect','文字表示エフェクト', globalSettings.textEffect, textEffects, 'text')}
+          <div><label>速度: ${globalSettings.effectSpeed}</label><input id="gEffectSpeed" type="range" min="1" max="10" value="${globalSettings.effectSpeed}"></div>
+          <div class="row3">
+            ${colorControl('gTextColor','文字色',globalSettings.textColor,'#ffffff',false)}
+            ${colorControl('gTextBackground','文字背景色',globalSettings.textBackgroundColor,'#d8b9aa',true)}
+            ${colorControl('gOutline','枠線色',globalSettings.outlineColor,'#000000',true)}
+          </div>
+          <div><label>枠線幅: ${globalSettings.outlineWidth}px</label><input id="gOutlineWidth" type="range" min="0" max="12" step="1" value="${globalSettings.outlineWidth}"></div>
+        </div>`;
+    }
+    function editHtml() {
+      const b = selectedBlock();
+      if (!b) return '<div class="small-note" style="text-align:center;margin-top:40px;">タイムライン上のブロックを選択してください。</div>';
+      return `
+        <div><label>歌詞テキスト</label><input id="text" type="text" value="${escapeHtml(b.text)}"></div>
+        <div class="row"><button id="addSide" class="btn primary">+ 追加</button><button id="deleteButton" class="btn danger">削除</button></div>
+        <div class="section"><h4>素材の詳細</h4>
+          <div><label>倍率: ${Number(b.scale).toFixed(1)}x</label><input id="scale" type="range" min=".5" max="3" step=".1" value="${b.scale}"></div>
+          <div class="row"><div><label>X: ${b.x}px</label><input id="x" type="range" min="-700" max="700" step="5" value="${b.x}"></div><div><label>Y: ${b.y}px</label><input id="y" type="range" min="-500" max="500" step="5" value="${b.y}"></div></div>
+          <div><label>角度: ${Math.round(Number(b.rotation) || 0)}°</label><input id="rotation" type="range" min="-180" max="180" step="1" value="${b.rotation || 0}"></div>
+          <div class="row"><div><label>開始フレーム</label><input id="startFrame" type="number" value="${b.startFrame}"></div><div><label>終了フレーム</label><input id="endFrame" type="number" value="${b.endFrame}"></div></div>
+        </div>
+        <div class="section"><h4>色と枠の調整</h4>
+          <div class="row3">
+            ${colorControl('textColor','文字色',b.textColor || globalSettings.textColor,'#ffffff',false)}
+            ${colorControl('textBackgroundColor','文字背景色',b.textBackgroundColor ?? globalSettings.textBackgroundColor,'#d8b9aa',true)}
+            ${colorControl('outlineColor','枠線色',b.outlineColor ?? globalSettings.outlineColor,'#000000',true)}
+          </div>
+          <div><label>枠線幅: ${b.outlineWidth ?? globalSettings.outlineWidth}px</label><input id="outlineWidth" type="range" min="0" max="12" step="1" value="${b.outlineWidth ?? globalSettings.outlineWidth}"></div>
+        </div>
+        <div class="section"><h4>エフェクト</h4>
+          ${effectPicker('effect','種類', b.effect, effects, 'display')}
+          <div><label>強度: ${b.effectIntensity}</label><input id="effectIntensity" type="range" min="0" max="10" value="${b.effectIntensity}"></div>
+          <div class="row"><div><label>開始</label><input id="effectStartFrame" type="number" value="${b.effectStartFrame}"></div><div><label>終了</label><input id="effectEndFrame" type="number" value="${b.effectEndFrame}"></div></div>
+        </div>
+        <div class="section"><h4>歌詞固有設定</h4>
+          ${fontPicker('font','フォント', b.font)}
+          ${effectPicker('textEffect','表示エフェクト', b.textEffect, textEffects, 'text')}
+          <div><label>速度: ${b.effectSpeed}</label><input id="effectSpeed" type="range" min="1" max="10" value="${b.effectSpeed}"></div>
+        </div>`;
+    }
+    function outputHtml() {
+      return `
+        <div><h4>動画エクスポート</h4>
+          <p class="small-note">ブラウザ版はWebMで保存します。MOV/ProRes 4444はブラウザ単体では生成できないため、Remotion/FFmpeg連携で実装する対象です。</p>
+          <div><label>保存形式</label><select id="exportFormat"><option value="webm" ${globalSettings.exportFormat === 'webm' ? 'selected' : ''}>WebM VP9 (ブラウザ仮保存)</option><option value="mov" ${globalSettings.exportFormat === 'mov' ? 'selected' : ''}>MOV / ProRes 4444 (外部レンダラ予定)</option></select></div>
+          <div><label>品質: ${globalSettings.exportQuality}</label><input id="exportQuality" type="range" min="1" max="10" step="1" value="${globalSettings.exportQuality}"></div>
+          <button id="saveVideo" class="btn primary" style="width:100%;margin-top:8px;" ${isRendering ? 'disabled' : ''}>${isRendering ? 'レンダリング中...' : '保存'}</button>
+          <div id="renderStatus" class="small-note" style="margin-top:12px;min-height:18px;">${escapeHtml(renderStatusText)}</div>
+        </div>`;
+    }
+    function editHtml() {
+      const b = selectedBlock();
+      if (!b) return '<div class="small-note" style="text-align:center;margin-top:40px;">タイムライン上のブロックを選択してください。</div>';
+      return `
+        <div><label>歌詞テキスト</label><input id="text" type="text" value="${escapeHtml(b.text)}"></div>
+        <div class="row"><button id="addSide" class="btn primary">+ 追加</button><button id="deleteButton" class="btn danger">削除</button></div>
+        <div class="section"><h4>素材の詳細</h4>
+          <div><label>倍率: ${Number(b.scale).toFixed(1)}x</label><input id="scale" type="range" min=".5" max="3" step=".1" value="${b.scale}"></div>
+          <div class="row"><div><label>X: ${b.x}px</label><input id="x" type="range" min="-700" max="700" step="5" value="${b.x}"></div><div><label>Y: ${b.y}px</label><input id="y" type="range" min="-500" max="500" step="5" value="${b.y}"></div></div>
+          <div><label>角度: ${Math.round(Number(b.rotation) || 0)}°</label><input id="rotation" type="range" min="-180" max="180" step="1" value="${b.rotation || 0}"></div>
+          <div class="row"><div><label>開始フレーム</label><input id="startFrame" type="number" value="${b.startFrame}"></div><div><label>終了フレーム</label><input id="endFrame" type="number" value="${b.endFrame}"></div></div>
+        </div>
+        <div class="section"><h4>色と枠の調整</h4>
+          <div class="row3">
+            ${colorControl('textColor','文字色',b.textColor || globalSettings.textColor,'#ffffff',false)}
+            ${colorControl('textBackgroundColor','文字背景色',b.textBackgroundColor ?? globalSettings.textBackgroundColor,'#d8b9aa',true)}
+            ${colorControl('outlineColor','枠線色',b.outlineColor ?? globalSettings.outlineColor,'#000000',true)}
+          </div>
+          <div><label>枠線幅: ${b.outlineWidth ?? globalSettings.outlineWidth}px</label><input id="outlineWidth" type="range" min="0" max="12" step="1" value="${b.outlineWidth ?? globalSettings.outlineWidth}"></div>
+        </div>
+        <div class="section"><h4>エフェクト</h4>
+          ${effectPicker('effect','種類', b.effect, effects, 'display')}
+          <div><label>強度: ${b.effectIntensity}</label><input id="effectIntensity" type="range" min="0" max="10" value="${b.effectIntensity}"></div>
+          <div class="row"><div><label>開始</label><input id="effectStartFrame" type="number" value="${b.effectStartFrame}"></div><div><label>終了</label><input id="effectEndFrame" type="number" value="${b.effectEndFrame}"></div></div>
+        </div>
+        <div class="section"><h4>歌詞固有設定</h4>
+          ${fontPicker('font','フォント', b.font)}
+          ${effectPicker('textEffect','表示エフェクト', b.textEffect, textEffects, 'text')}
+          <div><label>速度: ${b.effectSpeed}</label><input id="effectSpeed" type="range" min="1" max="10" value="${b.effectSpeed}"></div>
+        </div>
+        <div class="section"><h4>キーフレーム</h4>
+          <div class="row">
+            <div><label>変更項目</label><select id="keyframeProperty">${keyframeProperties.map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></div>
+            <div><label>値</label><input id="keyframeValue" type="text" value=""></div>
+          </div>
+          <div class="row"><button id="addKeyframe" class="btn primary">現在フレームに追加</button><button id="addKeyframePair" class="btn warn">開始/終了に追加</button></div>
+          <div class="small-note">${keyframeListHtml(b)}</div>
+        </div>`;
+    }
+    function helpHtml() {
+      return `
+        <div>
+          <h4>基本の流れ</h4>
+          <ol class="small-note" style="padding-left:20px;margin:0;line-height:1.8;">
+            <li>「入力・共通」で音楽ファイル、またはLRCファイルを読み込みます。</li>
+            <li>タイムラインで歌詞ブロックを選択します。</li>
+            <li>「編集」で文字、位置、色、枠線、エフェクト、開始/終了フレームを調整します。</li>
+            <li>必要に応じて「出力」から保存します。</li>
+          </ol>
+        </div>
+        <div class="section">
+          <h4>タイムライン操作</h4>
+          <div class="small-note">
+            <p>ブロック本体をドラッグすると開始位置を移動できます。</p>
+            <p>ブロックの左右端をドラッグすると開始フレーム/終了フレームを調整できます。</p>
+            <p>タイムラインの空白をクリックすると、その位置へシークします。</p>
+            <p>ズームでタイムラインの表示幅を変更できます。スナップON時は5フレーム単位で吸着します。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>プレビュー操作</h4>
+          <div class="small-note">
+            <p>「プレビュー上で文字をドラッグ」をONにすると、表示中の文字を直接動かしてX/Yを調整できます。</p>
+            <p>画面全体の背景は透明です。チェッカー表示は透過確認用です。</p>
+            <p>文字背景色や枠線色の「透過」をONにすると、その要素は出力されません。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>ショートカット</h4>
+          <div class="small-note">
+            <p><strong>Space</strong>: 再生/停止</p>
+            <p><strong>← / →</strong>: 1フレーム移動</p>
+            <p><strong>Del</strong>: 選択中の歌詞ブロックを削除</p>
+            <p><strong>Ctrl + Z</strong>: 戻す</p>
+            <p><strong>Shift + Ctrl + Z</strong>: やり直す</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>保存形式について</h4>
+          <div class="small-note">
+            <p>現在のブラウザ版はWebM保存に対応しています。</p>
+            <p>MOV / ProRes 4444は高品質な透過動画向けですが、ブラウザ単体では生成できないため、Remotion/FFmpeg連携で実装する予定です。</p>
+          </div>
+        </div>`;
+    }
+    function normalizeTabLabels() {
+      const labels = {input: '入力・共通', edit: '編集', output: '出力', help: '使い方'};
+      document.querySelectorAll('.tab').forEach(btn => {
+        if (labels[btn.dataset.tab]) btn.textContent = labels[btn.dataset.tab];
+      });
+    }
+    function helpHtml() {
+      return `
+        <div>
+          <h4>基本の流れ</h4>
+          <ol class="small-note" style="padding-left:20px;margin:0;line-height:1.8;">
+            <li>「入力・共通」で音楽ファイル、LRCファイル、またはプロジェクトJSONを読み込みます。</li>
+            <li>タイムラインで歌詞ブロックを選択します。</li>
+            <li>「編集」で文字、位置、倍率、角度、色、枠線、エフェクトを調整します。</li>
+            <li>動きを付けたい場合は「キーフレーム」を追加します。</li>
+            <li>必要に応じて「出力」から保存します。</li>
+          </ol>
+        </div>
+        <div class="section">
+          <h4>角度調整</h4>
+          <div class="small-note">
+            <p>歌詞ブロックを選択し、「編集」タブの「素材の詳細」にある「角度」スライダーを動かします。</p>
+            <p>角度は -180° から 180° まで指定できます。</p>
+            <p>角度もキーフレーム対象なので、時間に沿って回転させることができます。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>キーフレームの使い方</h4>
+          <div class="small-note">
+            <p>キーフレームは「指定したフレームで、指定した項目を指定した値にする」ための点です。</p>
+            <p>例: 「壊れるまで」を 75f で Y=-45、110f で Y=60 にすると、その間でY位置がなめらかに変化します。</p>
+            <p>操作手順:</p>
+            <ol style="padding-left:20px;line-height:1.8;">
+              <li>タイムラインで歌詞ブロックを選択します。</li>
+              <li>再生位置をキーフレームを置きたいフレームへ移動します。</li>
+              <li>「編集」タブの「キーフレーム」で変更項目を選びます。</li>
+              <li>値を入力して「現在フレームに追加」を押します。</li>
+              <li>別のフレームへ移動し、同じ項目に別の値を追加します。</li>
+            </ol>
+            <p>追加されたキーフレームはタイムライン上に菱形マーカーで表示されます。マーカーは左右にドラッグして位置を調整できます。</p>
+            <p>「開始/終了に追加」は、選択中ブロックの開始フレームと終了フレームに同じ値のキーフレームを追加します。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>キーフレームで変更できる項目</h4>
+          <div class="small-note">
+            <p>X位置、Y位置、倍率、角度、文字色、文字背景色、枠線色、枠線幅、エフェクト強度、エフェクト開始、エフェクト終了、表示速度を変更できます。</p>
+            <p>数値はフレーム間でなめらかに補間されます。色はRGBで補間されます。透過など補間できない値は途中で切り替わります。</p>
+            <p>エフェクト種類、フォント、表示エフェクトなどのプルダウン選択項目は、現時点ではキーフレーム対象外です。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>タイムライン操作</h4>
+          <div class="small-note">
+            <p>ブロック本体をドラッグすると開始位置を移動できます。</p>
+            <p>ブロックの左右端をドラッグすると開始フレーム/終了フレームを調整できます。</p>
+            <p>タイムラインの空白をクリックすると、その位置へシークします。</p>
+            <p>ズームでタイムラインの表示幅を変更できます。スナップON時は5フレーム単位で吸着します。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>プレビュー操作</h4>
+          <div class="small-note">
+            <p>「プレビュー上で文字をドラッグ」をONにすると、表示中の文字を直接動かしてX/Yを調整できます。</p>
+            <p>画面全体の背景は透明です。チェッカー表示は透過確認用です。</p>
+            <p>文字背景色や枠線色の「透過」をONにすると、その要素は出力されません。</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>ショートカット</h4>
+          <div class="small-note">
+            <p><strong>Space</strong>: 再生/停止</p>
+            <p><strong>← / →</strong>: 1フレーム移動</p>
+            <p><strong>Del</strong>: 選択中の歌詞ブロックを削除</p>
+            <p><strong>Ctrl + Z</strong>: 戻す</p>
+            <p><strong>Shift + Ctrl + Z</strong>: やり直す</p>
+          </div>
+        </div>
+        <div class="section">
+          <h4>保存形式について</h4>
+          <div class="small-note">
+            <p>現在のブラウザ版はWebM保存に対応しています。</p>
+            <p>MOV / ProRes 4444は高品質な透過動画向けですが、ブラウザ単体では生成できないため、Remotion/FFmpeg連携で実装する予定です。</p>
+          </div>
+        </div>`;
+    }
+    function bindControls() {
+      document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => { activeTab = btn.dataset.tab; render(); });
+      document.getElementById('undoButton').onclick = undo;
+      document.getElementById('redoButton').onclick = redo;
+      document.getElementById('playButton').onclick = togglePlayback;
+      document.getElementById('addBottom').onclick = addBlock;
+      const split = document.getElementById('verticalSplit'); if (split) split.onmousedown = startLayoutDrag;
+      const hSplit = document.getElementById('horizontalSplit'); if (hSplit) hSplit.onmousedown = startPanelDrag;
+      document.getElementById('previewDragToggle').onchange = e => { previewDragEnabled = e.target.checked; renderStage(); };
+      document.getElementById('snapToggle').onchange = e => { snapEnabled = e.target.checked; };
+      document.getElementById('zoomRange').oninput = e => { zoom = Number(e.target.value); renderTimeline(); };
+      bindFontPicker('gFont', value => updateGlobal('font', value));
+      bindFontPicker('font', value => updateBlock('font', value));
+      bindEffectPicker('gTextEffect', value => updateGlobal('textEffect', value));
+      bindEffectPicker('effect', value => updateBlock('effect', value));
+      bindEffectPicker('textEffect', value => updateBlock('textEffect', value));
+      const addSide = document.getElementById('addSide'); if (addSide) addSide.onclick = addBlock;
+      const del = document.getElementById('deleteButton'); if (del) del.onclick = deleteSelectedLyric;
+      const b = selectedBlock();
+      if (b) ['text','scale','x','y','rotation','startFrame','endFrame','textColor','textBackgroundColor','outlineColor','outlineWidth','effect','effectIntensity','effectStartFrame','effectEndFrame','font','textEffect','effectSpeed'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.oninput = () => updateBlock(id, el.value);
+      });
+      const keyframeProperty = document.getElementById('keyframeProperty');
+      const keyframeValue = document.getElementById('keyframeValue');
+      if (keyframeProperty && keyframeValue && b) {
+        const refreshKeyframeValue = () => keyframeValue.value = currentPropertyValue(b, keyframeProperty.value);
+        keyframeProperty.onchange = refreshKeyframeValue;
+        refreshKeyframeValue();
+      }
+      const addKeyframeButton = document.getElementById('addKeyframe');
+      if (addKeyframeButton) addKeyframeButton.onclick = () => addKeyframeAtCurrent(false);
+      const addKeyframePairButton = document.getElementById('addKeyframePair');
+      if (addKeyframePairButton) addKeyframePairButton.onclick = () => addKeyframeAtCurrent(true);
+      document.querySelectorAll('[data-delete-keyframe]').forEach(btn => btn.onclick = () => deleteKeyframe(btn.dataset.deleteKeyframe));
+      bindTransparentControl('textBackgroundColor', v => updateBlock('textBackgroundColor', v), b?.textBackgroundColor || '#d8b9aa');
+      bindTransparentControl('outlineColor', v => updateBlock('outlineColor', v), b?.outlineColor || '#000000');
+      ['gTextEffect','gEffectSpeed','gTextColor','gOutlineWidth','exportFormat','exportQuality'].forEach(id => {
+        const el = document.getElementById(id); if (!el) return;
+        const key = ({gFont:'font', gTextEffect:'textEffect', gEffectSpeed:'effectSpeed', gTextColor:'textColor', gOutlineWidth:'outlineWidth', exportFormat:'exportFormat', exportQuality:'exportQuality'})[id];
+        el.oninput = () => updateGlobal(key, ['effectSpeed','outlineWidth','exportQuality'].includes(key) ? Number(el.value) : el.value);
+      });
+      bindTransparentControl('gTextBackground', v => updateGlobal('textBackgroundColor', v), globalSettings.textBackgroundColor || '#d8b9aa');
+      bindTransparentControl('gOutline', v => updateGlobal('outlineColor', v), globalSettings.outlineColor || '#000000');
+      const lrc = document.getElementById('lrcFile'); if (lrc) lrc.onchange = importLrc;
+      const audio = document.getElementById('audioFile'); if (audio) audio.onchange = importAudio;
+      const ex = document.getElementById('exportJson'); if (ex) ex.onclick = exportProjectJson;
+      const im = document.getElementById('importJson'); if (im) im.onchange = importProjectJson;
+      const save = document.getElementById('saveVideo'); if (save) save.onclick = saveRenderedVideo;
+    }
+    function colorValue(value, fallback) {
+      return value && value !== 'transparent' ? value : fallback;
+    }
+    function colorControl(id, label, value, fallback, allowTransparent) {
+      const transparent = value === 'transparent';
+      return `<div><label>${label}</label><input id="${id}" type="color" value="${colorValue(value, fallback)}" ${transparent ? 'disabled' : ''}>${allowTransparent ? `<label class="inline-label" style="margin-top:6px;"><input id="${id}Transparent" type="checkbox" ${transparent ? 'checked' : ''}>透過</label>` : ''}</div>`;
+    }
+    function fontPicker(id, label, value) {
+      const safeValue = value || fonts[0];
+      return `<div class="font-picker" data-font-picker="${id}">
+        <label>${label}</label>
+        <button type="button" class="font-current" data-font-current="${id}">
+          <span style="font-family:'${safeValue}', sans-serif;">${escapeHtml(safeValue)}</span>
+          <span>▼</span>
+        </button>
+        <input id="${id}" type="hidden" value="${escapeHtml(safeValue)}">
+        <div class="font-menu">
+          <div class="font-hover-preview" data-font-preview="${id}" style="font-family:'${safeValue}', sans-serif;">${fontPreviewText}</div>
+          ${fontCatalog.map(([name, lang, desc]) => `<button type="button" class="font-option ${name === safeValue ? 'active' : ''}" data-font-value="${escapeHtml(name)}" title="${escapeHtml(desc)}">
+            <span><strong>${escapeHtml(name)}</strong><br><small>${lang} / ${escapeHtml(desc)}</small></span>
+            <span class="font-sample" style="font-family:'${name}', sans-serif;">${fontPreviewText}</span>
+          </button>`).join('')}
+        </div>
+      </div>`;
+    }
+    function bindFontPicker(id, setter) {
+      const picker = document.querySelector(`[data-font-picker="${id}"]`);
+      if (!picker) return;
+      const current = picker.querySelector(`[data-font-current="${id}"]`);
+      const input = document.getElementById(id);
+      const hoverPreview = picker.querySelector(`[data-font-preview="${id}"]`);
+      if (current) current.onclick = (event) => {
+        event.preventDefault();
+        document.querySelectorAll('.font-picker.open').forEach(p => {
+          if (p !== picker) p.classList.remove('open');
+        });
+        picker.classList.toggle('open');
+      };
+      picker.querySelectorAll('[data-font-value]').forEach(option => {
+        option.onmouseenter = () => {
+          const sample = option.querySelector('.font-sample');
+          if (sample) sample.textContent = fontPreviewText;
+          if (hoverPreview) hoverPreview.style.fontFamily = `'${option.dataset.fontValue}', sans-serif`;
+        };
+        option.onmouseleave = () => {
+          if (hoverPreview) hoverPreview.style.fontFamily = `'${input?.value || fonts[0]}', sans-serif`;
+        };
+        option.onclick = (event) => {
+          event.preventDefault();
+          const value = option.dataset.fontValue;
+          if (input) input.value = value;
+          setter(value);
+          picker.classList.remove('open');
+        };
+      });
+    }
+    function effectPicker(id, label, value, list, kind) {
+      const safeValue = value || list[0];
+      return `<div class="effect-picker" data-effect-picker="${id}" data-effect-kind="${kind}">
+        <label>${label}</label>
+        <button type="button" class="effect-current" data-effect-current="${id}">
+          <span>${escapeHtml(safeValue)}</span>
+          <span>▼</span>
+        </button>
+        <input id="${id}" type="hidden" value="${escapeHtml(safeValue)}">
+        <div class="effect-menu">
+          <div class="effect-hover-preview"><span class="effect-preview-text" data-effect-preview="${id}">テスト</span></div>
+          <div class="effect-options-scroll">
+            ${list.map(name => `<button type="button" class="effect-option ${name === safeValue ? 'active' : ''}" data-effect-value="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }
+    const effectPreviewTimers = new Map();
+    function paintEffectPreview(preview, value, kind, previewFrame = currentFrame % 90) {
+      if (!preview) return;
+      const fake = {
+        text: 'テスト',
+        startFrame: 0,
+        endFrame: 90,
+        effectSpeed: 5,
+        effectIntensity: 6,
+        effectStartFrame: 0,
+        effectEndFrame: 90,
+        effect: kind === 'display' ? value : 'None',
+        textEffect: kind === 'text' ? value : 'None',
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0,
+        textColor: '#ffffff',
+        outlineWidth: 0,
+        outlineColor: 'transparent',
+        textBackgroundColor: 'transparent'
+      };
+      const visual = getVisual(fake, previewFrame % 90);
+      preview.textContent = visual.text || 'テスト';
+      preview.style.color = visual.color || '#ffffff';
+      preview.style.opacity = visual.opacity;
+      preview.style.filter = visual.filter;
+      preview.style.textShadow = visual.shadow;
+      preview.style.clipPath = visual.clipPath || '';
+      preview.style.letterSpacing = visual.letterSpacing === null ? '' : `${visual.letterSpacing}px`;
+      preview.style.transform = `translate(${visual.x}px, ${visual.y}px) rotate(${visual.rotation}deg) scale(${visual.scale}) skewX(${visual.skew}deg) ${visual.extraTransform || ''}`;
+    }
+    function stopEffectPreview(id) {
+      const timer = effectPreviewTimers.get(id);
+      if (timer) window.clearInterval(timer);
+      effectPreviewTimers.delete(id);
+    }
+    function startEffectPreview(id, preview, valueGetter, kind) {
+      stopEffectPreview(id);
+      let previewFrame = 0;
+      paintEffectPreview(preview, valueGetter(), kind, previewFrame);
+      const timer = window.setInterval(() => {
+        previewFrame = (previewFrame + 1) % 90;
+        paintEffectPreview(preview, valueGetter(), kind, previewFrame);
+      }, 33);
+      effectPreviewTimers.set(id, timer);
+    }
+    function bindEffectPicker(id, setter) {
+      const picker = document.querySelector(`[data-effect-picker="${id}"]`);
+      if (!picker) return;
+      const current = picker.querySelector(`[data-effect-current="${id}"]`);
+      const input = document.getElementById(id);
+      const preview = picker.querySelector(`[data-effect-preview="${id}"]`);
+      const kind = picker.dataset.effectKind || 'text';
+      if (current) current.onclick = event => {
+        event.preventDefault();
+        document.querySelectorAll('.effect-picker.open').forEach(p => {
+          if (p !== picker) {
+            p.classList.remove('open');
+            stopEffectPreview(p.dataset.effectPicker);
+          }
+        });
+        picker.classList.toggle('open');
+        if (picker.classList.contains('open')) {
+          startEffectPreview(id, preview, () => picker.dataset.previewValue || input?.value || 'None', kind);
+        } else {
+          stopEffectPreview(id);
+        }
+      };
+      picker.querySelectorAll('[data-effect-value]').forEach(option => {
+        option.onmouseenter = () => {
+          picker.dataset.previewValue = option.dataset.effectValue;
+          startEffectPreview(id, preview, () => picker.dataset.previewValue || input?.value || 'None', kind);
+        };
+        option.onmouseleave = () => {
+          picker.dataset.previewValue = input?.value || 'None';
+          startEffectPreview(id, preview, () => picker.dataset.previewValue || input?.value || 'None', kind);
+        };
+        option.onclick = event => {
+          event.preventDefault();
+          const value = option.dataset.effectValue;
+          if (input) input.value = value;
+          picker.dataset.previewValue = value;
+          setter(value);
+          picker.classList.remove('open');
+          stopEffectPreview(id);
+        };
+      });
+    }
+    function bindTransparentControl(id, setter, fallback) {
+      const color = document.getElementById(id);
+      const transparent = document.getElementById(`${id}Transparent`);
+      if (color) color.oninput = () => setter(color.value);
+      if (transparent) transparent.onchange = () => {
+        if (color) color.disabled = transparent.checked;
+        setter(transparent.checked ? 'transparent' : (color?.value || fallback));
+      };
+    }
+    function keyframeLabel(property) {
+      return keyframeProperties.find(([value]) => value === property)?.[1] || property;
+    }
+    function currentPropertyValue(block, property) {
+      const value = withKeyframes(block, currentFrame)[property] ?? block[property] ?? '';
+      if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
+      return String(value);
+    }
+    function normalizeKeyframeValue(property, value) {
+      const numeric = ['x','y','scale','rotation','outlineWidth','effectIntensity','effectStartFrame','effectEndFrame','effectSpeed'];
+      return numeric.includes(property) ? Number(value) : value;
+    }
+    function addKeyframeAtCurrent(pair) {
+      const b = selectedBlock();
+      const prop = document.getElementById('keyframeProperty')?.value;
+      const valueInput = document.getElementById('keyframeValue')?.value;
+      if (!b || !prop) return;
+      recordHistory();
+      const value = normalizeKeyframeValue(prop, valueInput);
+      const frames = pair ? [b.startFrame, b.endFrame] : [currentFrame];
+      lyrics = lyrics.map(l => {
+        if (l.id !== b.id) return l;
+        const nextFrames = [...(l.keyframes || [])];
+        frames.forEach(frame => {
+          nextFrames.push({id:`kf-${Date.now()}-${Math.random().toString(16).slice(2)}`, property:prop, frame:Math.max(l.startFrame, Math.min(l.endFrame, frame)), value});
+        });
+        return {...l, keyframes: nextFrames.sort((a,b) => a.frame - b.frame)};
+      });
+      render();
+    }
+    function deleteKeyframe(id) {
+      const b = selectedBlock();
+      if (!b) return;
+      recordHistory();
+      lyrics = lyrics.map(l => l.id === b.id ? {...l, keyframes:(l.keyframes || []).filter(k => k.id !== id)} : l);
+      render();
+    }
+    function keyframeListHtml(block) {
+      const list = (block.keyframes || []).slice().sort((a,b) => a.frame - b.frame);
+      if (!list.length) return '<p>キーフレームはまだありません。</p>';
+      return list.map(k => `<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:6px 0;"><span>${k.frame}f / ${keyframeLabel(k.property)} = ${escapeHtml(k.value)}</span><button class="icon-btn" data-delete-keyframe="${k.id}" title="削除">×</button></div>`).join('');
+    }
+    function updateBlock(key, value) {
+      if (!selectedId) return;
+      recordHistory();
+      const numeric = ['scale','x','y','rotation','startFrame','endFrame','outlineWidth','effectIntensity','effectStartFrame','effectEndFrame','effectSpeed'];
+      lyrics = lyrics.map(l => {
+        if (l.id !== selectedId) return l;
+        const next = {...l, [key]: numeric.includes(key) ? Number(value) : value};
+        next.startFrame = Math.max(0, Math.min(next.startFrame, next.endFrame - 1));
+        next.endFrame = Math.max(next.startFrame + 1, next.endFrame);
+        return next;
+      });
+      render();
+    }
+    function updateGlobal(key, value) {
+      recordHistory();
+      globalSettings[key] = value;
+      render();
+    }
+    function addBlock() {
+      recordHistory();
+      const id = 'block-' + Date.now();
+      lyrics.push(makeBlock(id, '新しい歌詞', 0, currentFrame, Math.min(duration(), currentFrame + 60), 0, 'None', globalSettings.textColor));
+      selectedId = id;
+      activeTab = 'edit';
+      render();
+    }
+    function deleteSelectedLyric() {
+      if (!selectedId) return;
+      recordHistory();
+      lyrics = lyrics.filter(l => l.id !== selectedId);
+      selectedId = null;
+      render();
+    }
+    function togglePlayback() {
+      playing = !playing;
+      const audio = document.getElementById('audio');
+      if (playing) {
+        syncAudioToFrame();
+        if (audioFile) audio.play().catch(() => {});
+      } else {
+        audio.pause();
+      }
+      render();
+    }
+    function syncAudioToFrame() {
+      const audio = document.getElementById('audio');
+      if (audioFile && Math.abs(audio.currentTime - currentFrame / fps) > .08) audio.currentTime = currentFrame / fps;
+    }
+    setInterval(() => {
+      if (!playing) return;
+      const audio = document.getElementById('audio');
+      currentFrame = audioFile ? Math.round(audio.currentTime * fps) : currentFrame + 1;
+      if (currentFrame >= duration()) { playing = false; audio.pause(); currentFrame = duration(); }
+      render();
+    }, 1000 / fps);
+    async function importAudio(e) {
+      const file = e.target.files[0]; if (!file) return;
+      recordHistory();
+      const url = URL.createObjectURL(file);
+      const audio = document.getElementById('audio');
+      audio.src = url;
+      audioFile = {name:file.name, url, duration:0};
+      audio.onloadedmetadata = () => { audioFile.duration = audio.duration || 0; render(); };
+      try {
+        const data = await file.arrayBuffer();
+        const ctx = new AudioContext();
+        const buffer = await ctx.decodeAudioData(data.slice(0));
+        audioBufferData = buffer.getChannelData(0);
+        ctx.close();
+      } catch (_) { audioBufferData = null; }
+      render();
+    }
+    function importLrc(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const parsed = [];
+        let track = 0;
+        String(reader.result).split('\n').forEach((line, i) => {
+          const m = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
+          if (!m || !m[4].trim()) return;
+          const sec = Number(m[1]) * 60 + Number(m[2]) + Number(m[3]) / (m[3].length === 3 ? 1000 : 100);
+          const start = Math.round(sec * fps);
+          parsed.push({...makeBlock('lrc-' + i, m[4].trim(), track, start, start + 90, 0, 'Pop', globalSettings.textColor), font: globalSettings.font, textEffect: globalSettings.textEffect});
+          track = (track + 1) % 10;
+        });
+        if (parsed.length) {
+          recordHistory();
+          lyrics = parsed;
+          selectedId = null;
+          render();
+        }
+      };
+      reader.readAsText(file);
+    }
+    function exportProjectJson() {
+      const blob = new Blob([JSON.stringify({lyrics, globalSettings}, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'lyric-project.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importProjectJson(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        recordHistory();
+        const data = JSON.parse(reader.result);
+        if (Array.isArray(data.lyrics)) lyrics = data.lyrics;
+        if (data.globalSettings) globalSettings = {...globalSettings, ...data.globalSettings};
+        selectedId = null;
+        render();
+      };
+      reader.readAsText(file);
+    }
+    function options(list, selected) {
+      return list.map(v => `<option value="${escapeHtml(v)}" ${v === selected ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function isEditableTarget(target) {
+      return !!target?.closest?.('input, textarea, select, [contenteditable="true"]');
+    }
+    document.addEventListener('keydown', e => {
+      const key = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && key === 'z') {
+        e.preventDefault();
+        e.shiftKey ? redo() : undo();
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Del') && !isEditableTarget(e.target)) {
+        e.preventDefault();
+        deleteSelectedLyric();
+        return;
+      }
+      if (e.code === 'Space' && !isEditableTarget(e.target)) { e.preventDefault(); togglePlayback(); }
+      if (e.code === 'ArrowRight' && !isEditableTarget(e.target)) { currentFrame++; syncAudioToFrame(); render(); }
+      if (e.code === 'ArrowLeft' && !isEditableTarget(e.target)) { currentFrame--; syncAudioToFrame(); render(); }
+    });
+    async function saveRenderedVideo() {
+      if (globalSettings.exportFormat === 'mov') {
+        renderStatusText = 'MOV / ProRes 4444はRemotion/FFmpeg連携で実装予定です。現在のブラウザ版ではWebM保存のみ対応しています。';
+        render();
+        return;
+      }
+      if (isRendering) return;
+      isRendering = true;
+      renderStatusText = '保存先を選択してください。';
+      render();
+      let writable = null;
+      let url = null;
+      try {
+        if (window.showSaveFilePicker) {
+          const handle = await window.showSaveFilePicker({suggestedName:'lyric-video.webm', types:[{description:'WebM video', accept:{'video/webm':['.webm']}}]});
+          writable = await handle.createWritable();
+        }
+        const blob = await renderVideoBlob((f,total) => {
+          renderStatusText = `レンダリング中... ${Math.round((f / total) * 100)}%`;
+          if (activeTab === 'output') renderTabs();
+        });
+        if (writable) {
+          await writable.write(blob);
+          await writable.close();
+        } else {
+          url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'lyric-video.webm';
+          a.click();
+        }
+        renderStatusText = '保存が完了しました。';
+      } catch (err) {
+        renderStatusText = err?.name === 'AbortError' ? '保存をキャンセルしました。' : `保存に失敗しました: ${err?.message || err}`;
+      } finally {
+        if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+        isRendering = false;
+        render();
+      }
+    }
+    async function renderVideoBlob(onProgress) {
+      const originalFrame = currentFrame;
+      const canvas = document.createElement('canvas');
+      canvas.width = stageW;
+      canvas.height = stageH;
+      const ctx = canvas.getContext('2d');
+      const stream = canvas.captureStream(fps);
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      const recorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: globalSettings.exportQuality * 1000000});
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(resolve => recorder.onstop = resolve);
+      recorder.start();
+      const total = duration();
+      for (let frame = 0; frame <= total; frame++) {
+        drawFrame(ctx, frame);
+        if (frame % 3 === 0 || frame === total) {
+          onProgress(frame, total);
+          await wait(0);
+        }
+        await wait(1000 / fps);
+      }
+      recorder.stop();
+      await stopped;
+      currentFrame = originalFrame;
+      return new Blob(chunks, {type:'video/webm'});
+    }
+    function drawFrame(ctx, frame) {
+      ctx.clearRect(0,0,stageW,stageH);
+      lyrics.filter(l => frame >= l.startFrame && frame < l.endFrame).forEach(block => {
+        block = withKeyframes(block, frame);
+        const visual = getVisual(block, frame);
+        const fontSize = 96 * (Number(block.scale) || 1) * visual.scale;
+        const x = stageW / 2 + visual.x * 2;
+        const y = stageH / 2 + visual.y * 2;
+        const color = visual.color || block.textColor || globalSettings.textColor;
+        const drawText = visual.text || block.text;
+        const bg = getTextBackgroundColor(block);
+        ctx.save();
+        ctx.globalAlpha = visual.opacity;
+        ctx.translate(x, y);
+        ctx.rotate((visual.rotation * Math.PI) / 180);
+        ctx.transform(1, 0, Math.tan((visual.skew * Math.PI) / 180), 1, 0, 0);
+        ctx.font = `800 ${fontSize}px ${block.font || globalSettings.font}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        if (bg !== 'transparent') {
+          const metrics = ctx.measureText(drawText);
+          const paddingX = fontSize * .32;
+          const paddingY = fontSize * .14;
+          const h = (metrics.actualBoundingBoxAscent || fontSize * .78) + (metrics.actualBoundingBoxDescent || fontSize * .22);
+          ctx.fillStyle = bg;
+          ctx.fillRect(-metrics.width / 2 - paddingX, -h / 2 - paddingY, metrics.width + paddingX * 2, h + paddingY * 2);
+        }
+        ctx.shadowColor = block.effect === 'Neon' || block.effect === 'Glow' ? color : 'rgba(0,0,0,.55)';
+        ctx.shadowBlur = block.effect === 'Neon' || block.effect === 'Glow' ? 32 : 10;
+        ctx.strokeStyle = getOutlineColor(block);
+        ctx.lineWidth = getOutlineWidth(block) * 4;
+        ctx.fillStyle = color;
+        if (getOutlineWidth(block) > 0 && getOutlineColor(block) !== 'transparent') ctx.strokeText(drawText, 0, 0);
+        ctx.fillText(drawText, 0, 0);
+        ctx.restore();
+      });
+    }
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    render();
+  </script>
+</body>
+</html>

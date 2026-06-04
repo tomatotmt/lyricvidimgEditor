@@ -1,22 +1,18 @@
-﻿export interface LyricBlock {
+import {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS} from './effects';
+
+export interface LyricBlock {
   id: string;
   text: string;
-  track: number; // 0 to 4 (5 tracks)
+  track: number;
   startFrame: number;
   endFrame: number;
-  
-  // Edit tab - Asset details
   scale: number;
   x: number;
   y: number;
-  
-  // Edit tab - Shared FX
   effect: string;
   effectIntensity: number;
   effectStartFrame: number;
   effectEndFrame: number;
-  
-  // Edit tab - Lyric custom
   font: string;
   textEffect: string;
   effectSpeed: number;
@@ -38,30 +34,10 @@ export const FONT_OPTIONS = [
   'New Tegomin',
   'Noto Sans JP',
   'Murecho',
-  'Sawarabi Mincho'
+  'Sawarabi Mincho',
 ];
 
-export const EFFECT_OPTIONS = [
-  'None',
-  'Pop',
-  'Slide',
-  'Shake',
-  'Zoom',
-  'Blur',
-  'Glitch',
-  'Bounce',
-  'Neon',
-  'Glow'
-];
-
-export const TEXT_EFFECT_OPTIONS = [
-  'None',
-  'Fade In',
-  'Typewriter',
-  'Bounce In',
-  'Zoom In',
-  'Glitch Entry'
-];
+export {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS};
 
 export const COLOR_PALETTE = [
   '#ffffff',
@@ -72,31 +48,31 @@ export const COLOR_PALETTE = [
   '#f59e0b',
   '#8b5cf6',
   '#ec4899',
-  '#06b6d4'
+  '#06b6d4',
 ];
 
 export const initialLyrics: LyricBlock[] = [
   {
     id: 'l1',
-    text: '諢帙＠縺ｦ 繧ゅ▲縺ｨ 豺ｱ縺・,
+    text: '愛して もっと 深く',
     track: 0,
     startFrame: 0,
     endFrame: 60,
     scale: 1,
     x: 0,
     y: -100,
-    effect: 'Pop',
+    effect: 'Heartbeat Pulse',
     effectIntensity: 5,
     effectStartFrame: 0,
-    effectEndFrame: 30,
+    effectEndFrame: 60,
     font: 'Outfit',
-    textEffect: 'Bounce In',
+    textEffect: 'Pop In',
     effectSpeed: 5,
-    textColor: '#ffffff'
+    textColor: '#ffffff',
   },
   {
     id: 'l2',
-    text: '螢翫ｌ繧九∪縺ｧ',
+    text: '壊れるまで',
     track: 1,
     startFrame: 45,
     endFrame: 120,
@@ -110,6 +86,6 @@ export const initialLyrics: LyricBlock[] = [
     font: 'Outfit',
     textEffect: 'Glitch Entry',
     effectSpeed: 8,
-    textColor: '#ef4444'
-  }
+    textColor: '#ef4444',
+  },
 ];
