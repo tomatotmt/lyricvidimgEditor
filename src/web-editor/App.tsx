@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Player, PlayerRef} from '@remotion/player';
 import {TimelineTracks} from './components/TimelineTracks';
 import {EditorTabs} from './components/EditorTabs';
@@ -10,6 +10,7 @@ const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [durationInFrames, setDurationInFrames] = useState(300);
+  const [trackCount, setTrackCount] = useState(10);
   const [fps] = useState(30);
   const [audioFile, setAudioFile] = useState<{name: string; url: string; duration?: number} | null>(null);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
@@ -19,12 +20,55 @@ const App: React.FC = () => {
     textColor: '#ffffff',
     backgroundColor: '#0b0c10',
     outlineColor: '#000000',
+    textBackgroundColor: 'transparent',
+    outlineWidth: 2,
   });
-  const [activeTab, setActiveTab] = useState<'edit' | 'input' | 'output'>('input');
+  const [activeTab, setActiveTab] = useState<'edit' | 'input' | 'output' | 'help'>('input');
   const [player, setPlayer] = useState<PlayerRef | null>(null);
   const [previewHeight, setPreviewHeight] = useState(440);
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
+  const [previewPositionDragEnabled, setPreviewPositionDragEnabled] = useState(false);
+  const undoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
+  const redoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
   const selectedBlock = lyrics.find((lyric) => lyric.id === selectedId);
+
+  const snapshot = () => ({
+    lyrics: structuredClone(lyrics),
+    globalSettings: structuredClone(globalSettings),
+  });
+
+  const recordHistory = () => {
+    undoStackRef.current = [...undoStackRef.current.slice(-79), snapshot()];
+    redoStackRef.current = [];
+  };
+
+  const setLyricsWithHistory: React.Dispatch<React.SetStateAction<LyricBlock[]>> = (action) => {
+    recordHistory();
+    setLyrics(action);
+  };
+
+  const setGlobalSettingsWithHistory: React.Dispatch<React.SetStateAction<GlobalSettings>> = (action) => {
+    recordHistory();
+    setGlobalSettings(action);
+  };
+
+  const undo = () => {
+    const previous = undoStackRef.current.pop();
+    if (!previous) return;
+    redoStackRef.current.push(snapshot());
+    setLyrics(previous.lyrics);
+    setGlobalSettings(previous.globalSettings);
+    setSelectedId((id) => (id && previous.lyrics.some((lyric) => lyric.id === id) ? id : null));
+  };
+
+  const redo = () => {
+    const next = redoStackRef.current.pop();
+    if (!next) return;
+    undoStackRef.current.push(snapshot());
+    setLyrics(next.lyrics);
+    setGlobalSettings(next.globalSettings);
+    setSelectedId((id) => (id && next.lyrics.some((lyric) => lyric.id === id) ? id : null));
+  };
 
   useEffect(() => {
     if (!player) return;
@@ -38,6 +82,36 @@ const App: React.FC = () => {
     player?.seekTo(frame);
   };
 
+  const updateSelectedPosition = (x: number, y: number) => {
+    if (!selectedId) return;
+    setLyrics((prev) => prev.map((lyric) => (lyric.id === selectedId ? {...lyric, x, y} : lyric)));
+  };
+
+  const startPreviewLyricDrag = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!previewPositionDragEnabled || !selectedBlock) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initialX = selectedBlock.x;
+    const initialY = selectedBlock.y;
+
+    const onMove = (moveEvent: MouseEvent) => {
+      const deltaX = ((moveEvent.clientX - startX) / rect.width) * 1920;
+      const deltaY = ((moveEvent.clientY - startY) / rect.height) * 1080;
+      updateSelectedPosition(Math.round(initialX + deltaX), Math.round(initialY + deltaY));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const handleAddLyric = () => {
     const nextId = `block-${Date.now()}`;
     const newBlock: LyricBlock = {
@@ -49,6 +123,7 @@ const App: React.FC = () => {
       scale: 1,
       x: 0,
       y: 0,
+      rotation: 0,
       effect: 'None',
       effectIntensity: 5,
       effectStartFrame: currentFrame,
@@ -57,7 +132,11 @@ const App: React.FC = () => {
       textEffect: globalSettings.textEffect,
       effectSpeed: globalSettings.effectSpeed,
       textColor: globalSettings.textColor,
+      textBackgroundColor: globalSettings.textBackgroundColor ?? 'transparent',
+      outlineColor: globalSettings.outlineColor,
+      outlineWidth: globalSettings.outlineWidth ?? 2,
     };
+    recordHistory();
     setLyrics((prev) => [...prev, newBlock]);
     setSelectedId(nextId);
     setActiveTab('edit');
@@ -65,8 +144,29 @@ const App: React.FC = () => {
 
   const handleDeleteLyric = () => {
     if (!selectedId) return;
+    recordHistory();
     setLyrics((prev) => prev.filter((lyric) => lyric.id !== selectedId));
     setSelectedId(null);
+  };
+
+  const handleAddTrack = () => {
+    recordHistory();
+    setTrackCount((count) => count + 1);
+  };
+
+  const handleDeleteTrack = (trackIndex: number) => {
+    if (trackCount <= 1) return;
+    recordHistory();
+    setLyrics((prev) =>
+      prev
+        .filter((lyric) => lyric.track !== trackIndex)
+        .map((lyric) => (lyric.track > trackIndex ? {...lyric, track: lyric.track - 1} : lyric))
+    );
+    setSelectedId((id) => {
+      const selected = lyrics.find((lyric) => lyric.id === id);
+      return selected?.track === trackIndex ? null : id;
+    });
+    setTrackCount((count) => Math.max(1, count - 1));
   };
 
   const startLayoutDrag = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -121,6 +221,46 @@ const App: React.FC = () => {
     setCurrentFrame((frame) => Math.min(frame, nextDuration));
   }, [audioFile?.duration, fps, lyrics]);
 
+  useEffect(() => {
+    if (!audioFile?.url) return;
+    setCurrentFrame(0);
+    player?.seekTo(0);
+  }, [audioFile?.url, player]);
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) =>
+      target instanceof HTMLElement && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        handleDeleteLyric();
+        return;
+      }
+      if (event.code === 'Space') {
+        event.preventDefault();
+        player?.toggle();
+        return;
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        handleSeek(Math.min(durationInFrames, currentFrame + 1));
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        handleSeek(Math.max(0, currentFrame - 1));
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentFrame, durationInFrames, player, selectedId, lyrics, globalSettings]);
+
   return (
     <div style={{display: 'grid', gridTemplateColumns: `minmax(0, 1fr) 8px minmax(340px, ${rightPanelWidth}px)`, gap: 10, padding: 18, height: '100vh', boxSizing: 'border-box'}}>
       <div style={{display: 'grid', gridTemplateRows: `${previewHeight}px auto 8px minmax(220px, 1fr) auto`, gap: 12, minHeight: 0, overflow: 'hidden'}}>
@@ -136,31 +276,70 @@ const App: React.FC = () => {
           }}
         >
           <div style={{fontSize: 13, fontWeight: 800, color: '#9ca3af', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, padding: '6px 2px'}}>
-            <span>プレビュー (1920x1080 / 透明背景)</span>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+              <span>プレビュー (1920x1080 / 透明背景)</span>
+              <label style={{display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', letterSpacing: 0, cursor: 'pointer'}}>
+                <input
+                  type="checkbox"
+                  checked={previewPositionDragEnabled}
+                  onChange={(event) => setPreviewPositionDragEnabled(event.target.checked)}
+                  style={{width: 14, height: 14}}
+                />
+                文字位置ドラッグ
+              </label>
+            </div>
             <span>{selectedBlock ? `選択中: ${selectedBlock.text}` : '未選択'}</span>
           </div>
 
           <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, minHeight: 0, overflow: 'hidden'}}>
-            <Player
-              ref={setPlayer}
-              component={LyricComposition}
-              inputProps={{lyrics, globalSettings}}
-              durationInFrames={durationInFrames}
-              fps={fps}
-              compositionWidth={1920}
-              compositionHeight={1080}
+            <div
               style={{
+                position: 'relative',
                 width: `min(100%, ${Math.max(160, (previewHeight - 28) * 16 / 9)}px)`,
                 height: 'auto',
                 maxHeight: '100%',
                 maxWidth: '100%',
                 aspectRatio: '16/9',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-                borderRadius: 8,
-                backgroundColor: globalSettings.backgroundColor,
               }}
-              controls
-            />
+            >
+              <Player
+                ref={setPlayer}
+                component={LyricComposition}
+                inputProps={{lyrics, globalSettings, audioUrl: audioFile?.url}}
+                durationInFrames={durationInFrames}
+                fps={fps}
+                compositionWidth={1920}
+                compositionHeight={1080}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  maxHeight: '100%',
+                  maxWidth: '100%',
+                  aspectRatio: '16/9',
+                  display: 'block',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                  borderRadius: 8,
+                  backgroundColor: globalSettings.backgroundColor,
+                }}
+                controls
+              />
+              {previewPositionDragEnabled && (
+                <div
+                  onMouseDown={startPreviewLyricDrag}
+                  title={selectedBlock ? 'ドラッグして選択中の歌詞のXY位置を変更' : 'タイムライン上のリリックブロックを選択してください'}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 5,
+                    cursor: selectedBlock ? 'move' : 'not-allowed',
+                    borderRadius: 8,
+                    border: selectedBlock ? '1px dashed rgba(59,130,246,.7)' : '1px dashed rgba(156,163,175,.35)',
+                    background: 'rgba(59,130,246,.03)',
+                    pointerEvents: 'auto',
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -169,8 +348,9 @@ const App: React.FC = () => {
             再生時間: <span style={{color: '#f3f4f6', fontWeight: 'bold'}}>{(currentFrame / fps).toFixed(2)}s</span> / {(durationInFrames / fps).toFixed(2)}s
           </div>
           <div style={{display: 'flex', gap: 8}}>
-            <button onClick={() => player?.seekTo(Math.max(0, currentFrame - 1))}>↶</button>
-            <button onClick={() => player?.play()}>▶</button>
+            <button onClick={undo} title="戻す (Ctrl+Z)">↶</button>
+            <button onClick={redo} title="やり直し (Shift+Ctrl+Z)">↷</button>
+            <button onClick={() => player?.toggle()} title="再生/停止 (Space)">▶</button>
           </div>
           <div>
             フレーム: <span style={{color: '#f3f4f6', fontWeight: 'bold'}}>{currentFrame}f</span> / {durationInFrames}f
@@ -190,15 +370,18 @@ const App: React.FC = () => {
 
         <TimelineTracks
           lyrics={lyrics}
-          setLyrics={setLyrics}
+          setLyrics={setLyricsWithHistory}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           currentFrame={currentFrame}
           setCurrentFrame={handleSeek}
           durationInFrames={durationInFrames}
+          trackCount={trackCount}
+          onDeleteTrack={handleDeleteTrack}
+          audioUrl={audioFile?.url}
         />
 
-        <div style={{display: 'flex', justifyContent: 'flex-start', padding: '0 4px'}}>
+        <div style={{display: 'flex', justifyContent: 'flex-start', gap: 10, padding: '0 4px'}}>
           <button
             onClick={handleAddLyric}
             style={{
@@ -213,6 +396,20 @@ const App: React.FC = () => {
             }}
           >
             + 歌詞ブロックを追加 (現在のフレーム)
+          </button>
+          <button
+            onClick={handleAddTrack}
+            style={{
+              padding: '10px 16px',
+              backgroundColor: '#111827',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,.14)',
+              borderRadius: 8,
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            + トラック追加
           </button>
         </div>
       </div>
@@ -233,13 +430,16 @@ const App: React.FC = () => {
       <div style={{height: '100%', overflow: 'hidden'}}>
         <EditorTabs
           lyrics={lyrics}
-          setLyrics={setLyrics}
+          setLyrics={setLyricsWithHistory}
           selectedId={selectedId}
           globalSettings={globalSettings}
-          setGlobalSettings={setGlobalSettings}
+          setGlobalSettings={setGlobalSettingsWithHistory}
           audioFile={audioFile}
           setAudioFile={setAudioFile}
           durationInFrames={durationInFrames}
+          currentFrame={currentFrame}
+          trackCount={trackCount}
+          setTrackCount={setTrackCount}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onAddLyric={handleAddLyric}

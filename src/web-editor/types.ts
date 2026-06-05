@@ -9,6 +9,7 @@ export interface LyricBlock {
   scale: number;
   x: number;
   y: number;
+  rotation?: number;
   effect: string;
   effectIntensity: number;
   effectStartFrame: number;
@@ -17,6 +18,43 @@ export interface LyricBlock {
   textEffect: string;
   effectSpeed: number;
   textColor: string;
+  textBackgroundColor?: string;
+  outlineColor?: string;
+  outlineWidth?: number;
+  keyframes?: LyricKeyframe[];
+}
+
+export type LyricKeyframeProperty =
+  | 'x'
+  | 'y'
+  | 'scale'
+  | 'rotation'
+  | 'textColor'
+  | 'textBackgroundColor'
+  | 'outlineColor'
+  | 'outlineWidth'
+  | 'effectIntensity'
+  | 'effectStartFrame'
+  | 'effectEndFrame'
+  | 'effectSpeed';
+
+export interface LyricKeyframe {
+  id: string;
+  frame: number;
+  property?: LyricKeyframeProperty;
+  value?: string | number;
+  x?: number;
+  y?: number;
+  scale?: number;
+  rotation?: number;
+  textColor?: string;
+  textBackgroundColor?: string;
+  outlineColor?: string;
+  outlineWidth?: number;
+  effectIntensity?: number;
+  effectStartFrame?: number;
+  effectEndFrame?: number;
+  effectSpeed?: number;
 }
 
 export interface GlobalSettings {
@@ -26,6 +64,8 @@ export interface GlobalSettings {
   textColor: string;
   backgroundColor: string;
   outlineColor: string;
+  textBackgroundColor?: string;
+  outlineWidth?: number;
 }
 
 export const FONT_OPTIONS = [
@@ -69,6 +109,10 @@ export const initialLyrics: LyricBlock[] = [
     textEffect: 'Pop In',
     effectSpeed: 5,
     textColor: '#ffffff',
+    textBackgroundColor: 'transparent',
+    outlineColor: '#000000',
+    outlineWidth: 2,
+    rotation: 0,
   },
   {
     id: 'l2',
@@ -87,5 +131,9 @@ export const initialLyrics: LyricBlock[] = [
     textEffect: 'Glitch Entry',
     effectSpeed: 8,
     textColor: '#ef4444',
+    textBackgroundColor: 'transparent',
+    outlineColor: '#000000',
+    outlineWidth: 2,
+    rotation: 0,
   },
 ];

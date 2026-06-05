@@ -54,7 +54,9 @@ const createTextTexture = (
   text: string,
   fontFamily: string,
   textColor: string,
-  outlineColor: string
+  outlineColor: string,
+  backgroundColor: string,
+  outlineWidth: number
 ) => {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -74,11 +76,17 @@ const createTextTexture = (
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.lineJoin = 'round';
+  if (backgroundColor && backgroundColor !== 'transparent' && backgroundColor !== '#00000000') {
+    context.fillStyle = backgroundColor;
+    context.beginPath();
+    context.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 24);
+    context.fill();
+  }
   context.shadowColor = 'rgba(0,0,0,.55)';
   context.shadowBlur = 18;
-  if (outlineColor && outlineColor !== 'transparent') {
+  if (outlineColor && outlineColor !== 'transparent' && outlineWidth > 0) {
     context.strokeStyle = outlineColor;
-    context.lineWidth = 12;
+    context.lineWidth = Math.max(1, outlineWidth) * 6;
     context.strokeText(text || ' ', canvas.width / 2, canvas.height / 2);
   }
   context.fillStyle = textColor;
@@ -96,11 +104,13 @@ const TextPlane: React.FC<{
   fontFamily: string;
   textColor: string;
   outlineColor: string;
+  backgroundColor: string;
+  outlineWidth: number;
   state: LetterState;
-}> = ({text, fontFamily, textColor, outlineColor, state}) => {
+}> = ({text, fontFamily, textColor, outlineColor, backgroundColor, outlineWidth, state}) => {
   const texture = useMemo(
-    () => createTextTexture(text, fontFamily, state.color || textColor, outlineColor),
-    [fontFamily, outlineColor, state.color, text, textColor]
+    () => createTextTexture(text, fontFamily, state.color || textColor, outlineColor, backgroundColor, outlineWidth),
+    [backgroundColor, fontFamily, outlineColor, outlineWidth, state.color, text, textColor]
   );
   const image = texture.image as HTMLCanvasElement | undefined;
   const aspect = image?.width && image?.height ? image.width / image.height : 1;
@@ -119,7 +129,73 @@ const TextPlane: React.FC<{
   );
 };
 
-const getBasePosition = (lyric: LyricBlock): Vec3 => [lyric.x / 130, -lyric.y / 130, 0];
+const interpolate = (from: number, to: number, progress: number) => from + (to - from) * progress;
+
+const getFrameSettings = (lyric: LyricBlock, frame: number) => {
+  const base = {
+    x: lyric.x,
+    y: lyric.y,
+    scale: lyric.scale,
+    rotation: lyric.rotation ?? 0,
+    textColor: lyric.textColor,
+    textBackgroundColor: lyric.textBackgroundColor,
+    outlineColor: lyric.outlineColor,
+    outlineWidth: lyric.outlineWidth,
+    effectIntensity: lyric.effectIntensity,
+    effectStartFrame: lyric.effectStartFrame,
+    effectEndFrame: lyric.effectEndFrame,
+    effectSpeed: lyric.effectSpeed,
+  };
+  const keyframes = [...(lyric.keyframes ?? [])].sort((a, b) => a.frame - b.frame);
+  if (keyframes.length === 0) {
+    return base;
+  }
+
+  const settings = {...base};
+  const legacy = keyframes.filter((keyframe) => !keyframe.property);
+  if (legacy.length > 0) {
+    const first = legacy[0];
+    const last = legacy[legacy.length - 1];
+    const nextIndex = legacy.findIndex((keyframe) => keyframe.frame >= frame);
+    const prev = frame <= first.frame ? first : frame >= last.frame ? last : legacy[Math.max(0, nextIndex - 1)];
+    const next = frame <= first.frame ? first : frame >= last.frame ? last : legacy[nextIndex];
+    const p = next.frame === prev.frame ? 0 : (frame - prev.frame) / Math.max(1, next.frame - prev.frame);
+    settings.x = interpolate(prev.x ?? settings.x, next.x ?? settings.x, p);
+    settings.y = interpolate(prev.y ?? settings.y, next.y ?? settings.y, p);
+    settings.scale = interpolate(prev.scale ?? settings.scale, next.scale ?? settings.scale, p);
+    settings.rotation = interpolate(prev.rotation ?? settings.rotation, next.rotation ?? settings.rotation, p);
+    settings.outlineWidth = interpolate(prev.outlineWidth ?? settings.outlineWidth ?? 2, next.outlineWidth ?? settings.outlineWidth ?? 2, p);
+    settings.textColor = prev.textColor ?? settings.textColor;
+    settings.textBackgroundColor = prev.textBackgroundColor ?? settings.textBackgroundColor;
+    settings.outlineColor = prev.outlineColor ?? settings.outlineColor;
+  }
+
+  const numericProperties = new Set(['x', 'y', 'scale', 'rotation', 'outlineWidth', 'effectIntensity', 'effectStartFrame', 'effectEndFrame', 'effectSpeed']);
+  const propertyFrames = keyframes.filter((keyframe) => keyframe.property);
+  for (const property of new Set(propertyFrames.map((keyframe) => keyframe.property))) {
+    if (!property) continue;
+    const frames = propertyFrames.filter((keyframe) => keyframe.property === property).sort((a, b) => a.frame - b.frame);
+    const first = frames[0];
+    const last = frames[frames.length - 1];
+    const nextIndex = frames.findIndex((keyframe) => keyframe.frame >= frame);
+    const prev = frame <= first.frame ? first : frame >= last.frame ? last : frames[Math.max(0, nextIndex - 1)];
+    const next = frame <= first.frame ? first : frame >= last.frame ? last : frames[nextIndex];
+    if (numericProperties.has(property)) {
+      const from = Number(prev.value ?? settings[property]);
+      const to = Number(next.value ?? settings[property]);
+      const p = next.frame === prev.frame ? 0 : (frame - prev.frame) / Math.max(1, next.frame - prev.frame);
+      settings[property] = interpolate(from, to, p) as never;
+    } else {
+      settings[property] = String(prev.value ?? settings[property]) as never;
+    }
+  }
+  return settings;
+};
+
+const getBasePosition = (lyric: LyricBlock, frame: number): Vec3 => {
+  const settings = getFrameSettings(lyric, frame);
+  return [settings.x / 130, -settings.y / 130, 0];
+};
 
 const getProgress = (frame: number, lyric: LyricBlock) =>
   clamp((frame - lyric.startFrame) / Math.max(1, lyric.endFrame - lyric.startFrame));
@@ -178,14 +254,15 @@ const letterStateForPreset = (
   const p = getProgress(frame, lyric);
   const lp = getLetterProgress(frame, lyric, index);
   const e = easeOut(lp);
-  const base = getBasePosition(lyric);
+  const frameSettings = getFrameSettings(lyric, frame);
+  const base = getBasePosition(lyric, frame);
   const angle = (index / Math.max(1, total)) * Math.PI * 2;
-  const centerOffset = (index - (total - 1) / 2) * 0.72 * lyric.scale;
+  const centerOffset = (index - (total - 1) / 2) * 0.72 * frameSettings.scale;
   const flicker = name.includes('Glitch') || name.includes('Broken') ? (frame + index) % 9 < 2 ? 0.55 : 1 : 1;
   const state: LetterState = {
     position: [base[0] + centerOffset, base[1], base[2]],
     rotation: [0, 0, 0],
-    scale: lyric.scale,
+    scale: frameSettings.scale,
     opacity: lp * flicker,
     color: presetColor(textColor, name, frame, index),
   };
@@ -196,63 +273,63 @@ const letterStateForPreset = (
         ...state,
         position: [base[0] + Math.cos(angle + p * Math.PI * 2) * 4.8, base[1] + Math.sin(angle * 1.7) * 1.2, Math.sin(angle + p * Math.PI * 2) * 4.8],
         rotation: [0, -angle - p * Math.PI * 2, (1 - e) * Math.PI * 2],
-        scale: lyric.scale * (1.45 + Math.sin(angle + p * Math.PI * 2) * 0.18),
+        scale: frameSettings.scale * (1.45 + Math.sin(angle + p * Math.PI * 2) * 0.18),
       };
     case 'FPS Letter Rush': {
       const x = (rng() - 0.5) * 9;
       const y = (rng() - 0.5) * 5;
       const z = -index * 3.2 + p * total * 3.2 - 5;
-      return {...state, position: [x, y, z], rotation: [(rng() - 0.5) * 1.4 * (1 - e), (rng() - 0.5) * 1.6 * (1 - e), 0], scale: lyric.scale * (0.85 + e * 0.35), opacity: clamp(1 - Math.abs(z) / 15) * flicker};
+      return {...state, position: [x, y, z], rotation: [(rng() - 0.5) * 1.4 * (1 - e), (rng() - 0.5) * 1.6 * (1 - e), 0], scale: frameSettings.scale * (0.85 + e * 0.35), opacity: clamp(1 - Math.abs(z) / 15) * flicker};
     }
     case 'Text Tunnel Dive':
     case 'Data Glitch Corridor': {
       const ring = index % 10;
       const depth = -Math.floor(index / 10) * 4 - ring * 0.2 + p * 32;
-      return {...state, position: [Math.cos(angle) * 4.4, Math.sin(angle) * 2.5, depth], rotation: [0, 0, angle + Math.PI / 2], scale: lyric.scale * 0.8, opacity: clamp(1 - Math.abs(depth) / 20) * flicker};
+      return {...state, position: [Math.cos(angle) * 4.4, Math.sin(angle) * 2.5, depth], rotation: [0, 0, angle + Math.PI / 2], scale: frameSettings.scale * 0.8, opacity: clamp(1 - Math.abs(depth) / 20) * flicker};
     }
     case 'Spiral Word Galaxy':
-      return {...state, position: [base[0] + Math.cos(angle * 2 + p * 5) * (1.2 + index * 0.18), base[1] + (index - total / 2) * 0.1, Math.sin(angle * 2 + p * 5) * (1.2 + index * 0.18)], rotation: [0.2, angle + p * 4, 0], scale: lyric.scale * 0.9};
+      return {...state, position: [base[0] + Math.cos(angle * 2 + p * 5) * (1.2 + index * 0.18), base[1] + (index - total / 2) * 0.1, Math.sin(angle * 2 + p * 5) * (1.2 + index * 0.18)], rotation: [0.2, angle + p * 4, 0], scale: frameSettings.scale * 0.9};
     case 'Impact Billboard 3D':
-      return {...state, position: [base[0] + centerOffset, base[1] + Math.sin(index) * 0.1, -8 + e * 8], rotation: [(1 - e) * -0.6, (1 - e) * (rng() - 0.5), 0], scale: lyric.scale * (4 - e * 3), opacity: lp};
+      return {...state, position: [base[0] + centerOffset, base[1] + Math.sin(index) * 0.1, -8 + e * 8], rotation: [(1 - e) * -0.6, (1 - e) * (rng() - 0.5), 0], scale: frameSettings.scale * (4 - e * 3), opacity: lp};
     case 'Vocaloid Grid City':
-      return {...state, position: [(index % 6 - 2.5) * 1.5, -2 + Math.floor(index / 6) * 0.85, -8 + p * 12 + (rng() - 0.5) * 2], rotation: [-0.08, Math.sin(index) * 0.3, 0], scale: lyric.scale * 0.72, opacity: clamp(lp * 1.4)};
+      return {...state, position: [(index % 6 - 2.5) * 1.5, -2 + Math.floor(index / 6) * 0.85, -8 + p * 12 + (rng() - 0.5) * 2], rotation: [-0.08, Math.sin(index) * 0.3, 0], scale: frameSettings.scale * 0.72, opacity: clamp(lp * 1.4)};
     case 'Rotating Lyrics Ring':
-      return {...state, position: [Math.cos(angle + p * 4) * 3.2, base[1], Math.sin(angle + p * 4) * 3.2], rotation: [0, -angle - p * 4, 0], scale: lyric.scale};
+      return {...state, position: [Math.cos(angle + p * 4) * 3.2, base[1], Math.sin(angle + p * 4) * 3.2], rotation: [0, -angle - p * 4, 0], scale: frameSettings.scale};
     case 'Character Cannon':
-      return {...state, position: [base[0] + centerOffset, base[1], -16 + e * 16], rotation: [(1 - e) * 3, (1 - e) * 4, 0], scale: lyric.scale * (0.3 + e * 0.9)};
+      return {...state, position: [base[0] + centerOffset, base[1], -16 + e * 16], rotation: [(1 - e) * 3, (1 - e) * 4, 0], scale: frameSettings.scale * (0.3 + e * 0.9)};
     case 'Scatter To Camera':
     case 'Floating Caption Field': {
       const sx = (rng() - 0.5) * 10;
       const sy = (rng() - 0.5) * 6;
       const sz = (rng() - 0.5) * 12 - 2;
-      return {...state, position: [sx + (base[0] + centerOffset - sx) * e, sy + (base[1] - sy) * e, sz * (1 - e)], rotation: [(rng() - 0.5) * (1 - e) * 3, (rng() - 0.5) * (1 - e) * 3, 0], scale: lyric.scale * (0.75 + e * 0.25)};
+      return {...state, position: [sx + (base[0] + centerOffset - sx) * e, sy + (base[1] - sy) * e, sz * (1 - e)], rotation: [(rng() - 0.5) * (1 - e) * 3, (rng() - 0.5) * (1 - e) * 3, 0], scale: frameSettings.scale * (0.75 + e * 0.25)};
     }
     case 'Camera Whip Words':
-      return {...state, position: [base[0] + centerOffset + (1 - e) * 9, base[1], 0], rotation: [0, (1 - e) * -1.2, (1 - e) * 0.25], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset + (1 - e) * 9, base[1], 0], rotation: [0, (1 - e) * -1.2, (1 - e) * 0.25], scale: frameSettings.scale};
     case 'Deep Focus Swap':
-      return {...state, position: [base[0] + centerOffset, base[1], (index - total / 2) * -0.8 + (1 - e) * -4], scale: lyric.scale * (0.9 + e * 0.2), opacity: lp};
+      return {...state, position: [base[0] + centerOffset, base[1], (index - total / 2) * -0.8 + (1 - e) * -4], scale: frameSettings.scale * (0.9 + e * 0.2), opacity: lp};
     case 'Falling Text Abyss':
-      return {...state, position: [base[0] + centerOffset, base[1] + (1 - e) * 6 - p * 2, -index * 0.45], rotation: [(1 - e) * -1.3, 0, (rng() - 0.5) * 0.5], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset, base[1] + (1 - e) * 6 - p * 2, -index * 0.45], rotation: [(1 - e) * -1.3, 0, (rng() - 0.5) * 0.5], scale: frameSettings.scale};
     case 'Exploded Word Rebuild': {
       const sx = (rng() - 0.5) * 12;
       const sy = (rng() - 0.5) * 8;
       const sz = (rng() - 0.5) * 10;
-      return {...state, position: [base[0] + centerOffset + sx * (1 - e), base[1] + sy * (1 - e), sz * (1 - e)], rotation: [(1 - e) * sx, (1 - e) * sy, (1 - e) * sz], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset + sx * (1 - e), base[1] + sy * (1 - e), sz * (1 - e)], rotation: [(1 - e) * sx, (1 - e) * sy, (1 - e) * sz], scale: frameSettings.scale};
     }
     case 'Vortex Karaoke':
-      return {...state, position: [base[0] + centerOffset + Math.cos(angle + p * 12) * (1 - e) * 5, base[1] + Math.sin(angle + p * 12) * (1 - e) * 3, (1 - e) * -8], rotation: [0, 0, angle + p * 8], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset + Math.cos(angle + p * 12) * (1 - e) * 5, base[1] + Math.sin(angle + p * 12) * (1 - e) * 3, (1 - e) * -8], rotation: [0, 0, angle + p * 8], scale: frameSettings.scale};
     case 'Orbit Camera Snap':
-      return {...state, position: [base[0] + centerOffset, base[1], Math.sin(index) * 0.8], rotation: [0, Math.sin(p * Math.PI * 2) * 0.4, 0], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset, base[1], Math.sin(index) * 0.8], rotation: [0, Math.sin(p * Math.PI * 2) * 0.4, 0], scale: frameSettings.scale};
     case 'Perspective Typewriter 3D':
-      return {...state, position: [base[0] + centerOffset, base[1], (1 - e) * -5], rotation: [(1 - e) * Math.PI, 0, 0], scale: lyric.scale, opacity: lp};
+      return {...state, position: [base[0] + centerOffset, base[1], (1 - e) * -5], rotation: [(1 - e) * Math.PI, 0, 0], scale: frameSettings.scale, opacity: lp};
     case 'Neon Depth Chase':
-      return {...state, position: [base[0] + centerOffset, base[1], -10 + e * 10 + Math.sin(frame * 0.08 + index) * 0.8], rotation: [0, 0, 0], scale: lyric.scale * (0.9 + e * 0.18)};
+      return {...state, position: [base[0] + centerOffset, base[1], -10 + e * 10 + Math.sin(frame * 0.08 + index) * 0.8], rotation: [0, 0, 0], scale: frameSettings.scale * (0.9 + e * 0.18)};
     case 'Broken Subtitle Space':
-      return {...state, position: [base[0] + centerOffset + (rng() - 0.5) * (1 - e) * 2 + Math.sin(frame + index) * 0.04, base[1] + (rng() - 0.5) * (1 - e), (rng() - 0.5) * 2], rotation: [0, (rng() - 0.5) * 0.4, (rng() - 0.5) * 0.18], scale: lyric.scale};
+      return {...state, position: [base[0] + centerOffset + (rng() - 0.5) * (1 - e) * 2 + Math.sin(frame + index) * 0.04, base[1] + (rng() - 0.5) * (1 - e), (rng() - 0.5) * 2], rotation: [0, (rng() - 0.5) * 0.4, (rng() - 0.5) * 0.18], scale: frameSettings.scale};
     case 'Lyrics Roller Coaster':
-      return {...state, position: [Math.sin(index * 0.8) * 3, Math.cos(index * 0.55) * 1.8, -index * 2.4 + p * total * 2.4], rotation: [Math.sin(index) * 0.35, Math.cos(index) * 0.4, 0], scale: lyric.scale * 0.85, opacity: clamp(lp * 1.6)};
+      return {...state, position: [Math.sin(index * 0.8) * 3, Math.cos(index * 0.55) * 1.8, -index * 2.4 + p * total * 2.4], rotation: [Math.sin(index) * 0.35, Math.cos(index) * 0.4, 0], scale: frameSettings.scale * 0.85, opacity: clamp(lp * 1.6)};
     case 'Massive Word Eclipse':
-      return {...state, position: [base[0] + centerOffset + (1 - p) * -10 + p * 6, base[1], -2], rotation: [0, 0.15, 0], scale: lyric.scale * 2.2, opacity: clamp(lp * 1.2)};
+      return {...state, position: [base[0] + centerOffset + (1 - p) * -10 + p * 6, base[1], -2], rotation: [0, 0.15, 0], scale: frameSettings.scale * 2.2, opacity: clamp(lp * 1.2)};
     default:
       return state;
   }
@@ -266,8 +343,11 @@ const ThreeLyric: React.FC<{
   const effectName = lyric.textEffect as ThreeTextEffectName;
   const chars = splitText(lyric.text);
   const fontFamily = lyric.font || globalSettings.font || 'Noto Sans JP';
-  const textColor = lyric.textColor || globalSettings.textColor || '#ffffff';
-  const outlineColor = globalSettings.outlineColor || 'transparent';
+  const frameSettings = getFrameSettings(lyric, frame);
+  const textColor = frameSettings.textColor || globalSettings.textColor || '#ffffff';
+  const outlineColor = frameSettings.outlineColor || globalSettings.outlineColor || 'transparent';
+  const backgroundColor = frameSettings.textBackgroundColor || globalSettings.textBackgroundColor || 'transparent';
+  const outlineWidth = frameSettings.outlineWidth ?? globalSettings.outlineWidth ?? 2;
 
   return (
     <>
@@ -279,6 +359,8 @@ const ThreeLyric: React.FC<{
             fontFamily={fontFamily}
             textColor={textColor}
             outlineColor={outlineColor}
+            backgroundColor={backgroundColor}
+            outlineWidth={outlineWidth}
             state={letterStateForPreset(effectName, lyric, frame, index, chars.length, textColor)}
           />
         ))}

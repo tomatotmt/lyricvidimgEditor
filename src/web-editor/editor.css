@@ -97,7 +97,7 @@ label {
 
 /* Timeline specific styles */
 .timeline-track {
-  height: 48px;
+  height: 24px;
   background: var(--track-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   position: relative;
@@ -106,13 +106,13 @@ label {
 
 .lyric-block {
   position: absolute;
-  height: 36px;
-  top: 6px;
+  height: 18px;
+  top: 3px;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.15));
   border: 1px solid rgba(59, 130, 246, 0.6);
   border-radius: 6px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   display: flex;
   align-items: center;
