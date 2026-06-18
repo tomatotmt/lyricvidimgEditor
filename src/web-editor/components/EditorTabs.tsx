@@ -3,6 +3,7 @@ import {Player} from '@remotion/player';
 import {
   COLOR_PALETTE,
   EFFECT_OPTIONS,
+  FADE_PATTERN_OPTIONS,
   FONT_OPTIONS,
   GlobalSettings,
   LyricBlock,
@@ -12,8 +13,13 @@ import {
 } from '../types';
 import {
   buildAnimatedStyle,
+  EFFECT_CATEGORIES,
+  EffectCategory,
+  getEffectCategory,
   getDisplayEffectAnimation,
+  getTextEffectCategory,
   getTextEffectAnimation,
+  TEXT_EFFECT_CATEGORIES,
 } from '../effects';
 import {LyricComposition} from './LyricComposition';
 
@@ -92,6 +98,9 @@ const KEYFRAME_PROPERTIES: Array<{value: LyricKeyframeProperty; label: string; t
   {value: 'effectIntensity', label: 'エフェクト強度', type: 'number'},
   {value: 'effectStartFrame', label: 'エフェクト開始', type: 'number'},
   {value: 'effectEndFrame', label: 'エフェクト終了', type: 'number'},
+  {value: 'effectSwitchFrame', label: 'Effect switch', type: 'number'},
+  {value: 'fadeInFrames', label: 'Fade in frames', type: 'number'},
+  {value: 'fadeOutFrames', label: 'Fade out frames', type: 'number'},
   {value: 'effectSpeed', label: '表示速度', type: 'number'},
 ];
 
@@ -107,6 +116,9 @@ const numericKeyframes = new Set<LyricKeyframeProperty>([
   'effectIntensity',
   'effectStartFrame',
   'effectEndFrame',
+  'effectSwitchFrame',
+  'fadeInFrames',
+  'fadeOutFrames',
   'effectSpeed',
 ]);
 
@@ -141,9 +153,16 @@ const EffectPreview: React.FC<{
     y: 0,
     rotation: 0,
     effect: kind === 'effect' ? effect : 'None',
+    inEffect: kind === 'effect' ? effect : 'None',
+    outEffect: 'None',
     effectIntensity: 6,
     effectStartFrame: 0,
     effectEndFrame: 90,
+    effectSwitchFrame: 45,
+    fadeInFrames: 8,
+    fadeOutFrames: 8,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
     font: 'Noto Sans JP',
     textEffect: kind === 'textEffect' ? effect : 'None',
     effectSpeed: 5,
@@ -228,6 +247,17 @@ const EffectPicker: React.FC<{
 }> = ({label, value, options, kind, onChange}) => {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(value);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<EffectCategory>('All');
+  const categories = kind === 'effect' ? EFFECT_CATEGORIES : TEXT_EFFECT_CATEGORIES;
+  const getCategory = kind === 'effect' ? getEffectCategory : getTextEffectCategory;
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = options.filter((option) => {
+    const matchesCategory = category === 'All' || getCategory(option) === category;
+    const matchesQuery = !normalizedQuery || option.toLowerCase().includes(normalizedQuery);
+    return matchesCategory && matchesQuery;
+  });
+  const previewEffect = filteredOptions.includes(hovered) ? hovered : filteredOptions[0] ?? value;
 
   return (
     <div style={fieldStyle}>
@@ -236,6 +266,8 @@ const EffectPicker: React.FC<{
         type="button"
         onClick={() => {
           setHovered(value);
+          setQuery('');
+          setCategory(value === 'None' ? 'All' : getCategory(value));
           setOpen((current) => !current);
         }}
         style={{
@@ -261,9 +293,50 @@ const EffectPicker: React.FC<{
             boxShadow: '0 12px 28px rgba(0,0,0,.35)',
           }}
         >
-          <EffectPreview effect={hovered || value} kind={kind} />
+          <EffectPreview effect={previewEffect} kind={kind} />
+          <input
+            type="search"
+            placeholder="Search effects"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 8,
+              border: '1px solid #374151',
+              background: '#111827',
+              color: '#f3f4f6',
+              marginBottom: 8,
+            }}
+          />
+          <div style={{display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8}}>
+            {categories.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  setCategory(item);
+                  setHovered(value);
+                }}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: 999,
+                  border: '1px solid #374151',
+                  background: category === item ? '#2563eb' : '#111827',
+                  color: category === item ? '#ffffff' : '#cbd5e1',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
           <div style={{maxHeight: 260, overflowY: 'auto', paddingRight: 2}}>
-            {options.map((option) => (
+            {filteredOptions.length === 0 && (
+              <div style={{padding: '12px 10px', color: '#9ca3af', fontSize: 12}}>No effects found.</div>
+            )}
+            {filteredOptions.map((option) => (
               <button
                 key={option}
                 type="button"
@@ -323,6 +396,16 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   const updateSelectedBlock = (updates: Partial<LyricBlock>) => {
     if (!selectedId) return;
     setLyrics((prev) => prev.map((lyric) => (lyric.id === selectedId ? {...lyric, ...updates} : lyric)));
+  };
+
+  const applyGlobalFadeToAllLyrics = () => {
+    setLyrics((prev) => prev.map((lyric) => ({
+      ...lyric,
+      fadeInFrames: globalSettings.fadeInFrames ?? 8,
+      fadeOutFrames: globalSettings.fadeOutFrames ?? 8,
+      fadeInPattern: globalSettings.fadeInPattern ?? 'Linear',
+      fadeOutPattern: globalSettings.fadeOutPattern ?? 'Linear',
+    })));
   };
 
   useEffect(() => {
@@ -444,9 +527,16 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           y: 0,
           rotation: 0,
           effect: 'None',
+          inEffect: 'None',
+          outEffect: 'None',
           effectIntensity: 5,
           effectStartFrame: startFrame,
           effectEndFrame: startFrame + 45,
+          effectSwitchFrame: startFrame + 22,
+          fadeInFrames: globalSettings.fadeInFrames ?? 8,
+          fadeOutFrames: globalSettings.fadeOutFrames ?? 8,
+          fadeInPattern: globalSettings.fadeInPattern ?? 'Linear',
+          fadeOutPattern: globalSettings.fadeOutPattern ?? 'Linear',
           font: globalSettings.font,
           textEffect: globalSettings.textEffect,
           effectSpeed: globalSettings.effectSpeed,
@@ -768,9 +858,25 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
 
             <div style={sectionStyle}>
               <h4>エフェクト</h4>
-              <EffectPicker label="種類" value={selectedBlock.effect} options={EFFECT_OPTIONS} kind="effect" onChange={(value) => updateSelectedBlock({effect: value})} />
+              <EffectPicker
+                label="IN Effect"
+                value={selectedBlock.inEffect ?? selectedBlock.effect}
+                options={EFFECT_OPTIONS}
+                kind="effect"
+                onChange={(value) => updateSelectedBlock({inEffect: value, effect: value})}
+              />
+              <EffectPicker
+                label="OUT Effect"
+                value={selectedBlock.outEffect ?? 'None'}
+                options={EFFECT_OPTIONS}
+                kind="effect"
+                onChange={(value) => updateSelectedBlock({outEffect: value})}
+              />
               <label>強度: {selectedBlock.effectIntensity}</label>
               <input type="range" min="0" max="10" step="1" value={selectedBlock.effectIntensity} onChange={(e) => updateSelectedBlock({effectIntensity: Number(e.target.value)})} />
+              <details style={{marginTop: 12}}>
+                <summary style={{cursor: 'pointer', color: '#d1d5db', fontWeight: 700}}>Advanced timing / fade</summary>
+                <div style={{display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10}}>
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
                 <div style={fieldStyle}>
                   <label>開始</label>
@@ -781,6 +887,59 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
                   <input type="number" value={selectedBlock.effectEndFrame} onChange={(e) => updateSelectedBlock({effectEndFrame: Number(e.target.value) || 0})} />
                 </div>
               </div>
+              {(selectedBlock.inEffect ?? selectedBlock.effect) !== 'None' && (selectedBlock.outEffect ?? 'None') !== 'None' && (
+                <div style={{...fieldStyle, marginTop: 10}}>
+                  <label>IN/OUT switch: {selectedBlock.effectSwitchFrame ?? Math.round((selectedBlock.effectStartFrame + selectedBlock.effectEndFrame) / 2)}f</label>
+                  <input
+                    type="range"
+                    min={Math.min(selectedBlock.effectStartFrame + 1, selectedBlock.effectEndFrame - 1)}
+                    max={Math.max(selectedBlock.effectStartFrame + 1, selectedBlock.effectEndFrame - 1)}
+                    step="1"
+                    value={selectedBlock.effectSwitchFrame ?? Math.round((selectedBlock.effectStartFrame + selectedBlock.effectEndFrame) / 2)}
+                    onChange={(e) => updateSelectedBlock({effectSwitchFrame: Number(e.target.value)})}
+                  />
+                </div>
+              )}
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12}}>
+                <div style={fieldStyle}>
+                  <label>Fade IN pattern</label>
+                  <select
+                    value={selectedBlock.fadeInPattern ?? globalSettings.fadeInPattern ?? 'Linear'}
+                    onChange={(e) => updateSelectedBlock({fadeInPattern: e.target.value})}
+                  >
+                    {FADE_PATTERN_OPTIONS.map((pattern) => <option key={pattern} value={pattern}>{pattern}</option>)}
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label>Fade OUT pattern</label>
+                  <select
+                    value={selectedBlock.fadeOutPattern ?? globalSettings.fadeOutPattern ?? 'Linear'}
+                    onChange={(e) => updateSelectedBlock({fadeOutPattern: e.target.value})}
+                  >
+                    {FADE_PATTERN_OPTIONS.map((pattern) => <option key={pattern} value={pattern}>{pattern}</option>)}
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label>Fade IN frames</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={selectedBlock.fadeInFrames ?? globalSettings.fadeInFrames ?? 8}
+                    onChange={(e) => updateSelectedBlock({fadeInFrames: Math.max(0, Number(e.target.value) || 0)})}
+                  />
+                </div>
+                <div style={fieldStyle}>
+                  <label>Fade OUT frames</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={selectedBlock.fadeOutFrames ?? globalSettings.fadeOutFrames ?? 8}
+                    onChange={(e) => updateSelectedBlock({fadeOutFrames: Math.max(0, Number(e.target.value) || 0)})}
+                  />
+                </div>
+              </div>
+                </div>
+              </details>
             </div>
 
             <div style={sectionStyle}>
@@ -888,6 +1047,52 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
               <EffectPicker label="表示エフェクト" value={globalSettings.textEffect} options={TEXT_EFFECT_OPTIONS} kind="textEffect" onChange={(value) => setGlobalSettings((prev) => ({...prev, textEffect: value}))} />
               <label>表示速度: {globalSettings.effectSpeed}</label>
               <input type="range" min="1" max="10" step="1" value={globalSettings.effectSpeed} onChange={(e) => setGlobalSettings((prev) => ({...prev, effectSpeed: Number(e.target.value)}))} />
+              <details>
+                <summary style={{cursor: 'pointer', color: '#d1d5db', fontWeight: 700}}>Common fade defaults</summary>
+                <div style={{display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10}}>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+                <div style={fieldStyle}>
+                  <label>Common fade IN</label>
+                  <select
+                    value={globalSettings.fadeInPattern ?? 'Linear'}
+                    onChange={(e) => setGlobalSettings((prev) => ({...prev, fadeInPattern: e.target.value}))}
+                  >
+                    {FADE_PATTERN_OPTIONS.map((pattern) => <option key={pattern} value={pattern}>{pattern}</option>)}
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label>Common fade OUT</label>
+                  <select
+                    value={globalSettings.fadeOutPattern ?? 'Linear'}
+                    onChange={(e) => setGlobalSettings((prev) => ({...prev, fadeOutPattern: e.target.value}))}
+                  >
+                    {FADE_PATTERN_OPTIONS.map((pattern) => <option key={pattern} value={pattern}>{pattern}</option>)}
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label>Fade IN frames</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={globalSettings.fadeInFrames ?? 8}
+                    onChange={(e) => setGlobalSettings((prev) => ({...prev, fadeInFrames: Math.max(0, Number(e.target.value) || 0)}))}
+                  />
+                </div>
+                <div style={fieldStyle}>
+                  <label>Fade OUT frames</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={globalSettings.fadeOutFrames ?? 8}
+                    onChange={(e) => setGlobalSettings((prev) => ({...prev, fadeOutFrames: Math.max(0, Number(e.target.value) || 0)}))}
+                  />
+                </div>
+              </div>
+              <button type="button" onClick={applyGlobalFadeToAllLyrics} style={{...buttonStyle, background: '#2563eb'}}>
+                Common fade を全テキストへ一括適用
+              </button>
+                </div>
+              </details>
               <div style={fieldStyle}>
                 <label>文字色</label>
                 <input type="color" value={globalSettings.textColor} onChange={(e) => setGlobalSettings((prev) => ({...prev, textColor: e.target.value}))} />

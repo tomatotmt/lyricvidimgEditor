@@ -11,9 +11,16 @@ export interface LyricBlock {
   y: number;
   rotation?: number;
   effect: string;
+  inEffect?: string;
+  outEffect?: string;
   effectIntensity: number;
   effectStartFrame: number;
   effectEndFrame: number;
+  effectSwitchFrame?: number;
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
+  fadeInPattern?: string;
+  fadeOutPattern?: string;
   font: string;
   textEffect: string;
   effectSpeed: number;
@@ -36,6 +43,9 @@ export type LyricKeyframeProperty =
   | 'effectIntensity'
   | 'effectStartFrame'
   | 'effectEndFrame'
+  | 'effectSwitchFrame'
+  | 'fadeInFrames'
+  | 'fadeOutFrames'
   | 'effectSpeed';
 
 export interface LyricKeyframe {
@@ -54,6 +64,9 @@ export interface LyricKeyframe {
   effectIntensity?: number;
   effectStartFrame?: number;
   effectEndFrame?: number;
+  effectSwitchFrame?: number;
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
   effectSpeed?: number;
 }
 
@@ -66,6 +79,10 @@ export interface GlobalSettings {
   outlineColor: string;
   textBackgroundColor?: string;
   outlineWidth?: number;
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
+  fadeInPattern?: string;
+  fadeOutPattern?: string;
 }
 
 export const FONT_OPTIONS = [
@@ -78,6 +95,11 @@ export const FONT_OPTIONS = [
 ];
 
 export {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS};
+
+export const FADE_PATTERN_OPTIONS = [
+  'None',
+  'Linear',
+] as const;
 
 export const COLOR_PALETTE = [
   '#ffffff',
@@ -102,9 +124,16 @@ export const initialLyrics: LyricBlock[] = [
     x: 0,
     y: -100,
     effect: 'Heartbeat Pulse',
+    inEffect: 'Heartbeat Pulse',
+    outEffect: 'None',
     effectIntensity: 5,
     effectStartFrame: 0,
     effectEndFrame: 60,
+    effectSwitchFrame: 30,
+    fadeInFrames: 8,
+    fadeOutFrames: 8,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
     font: 'Outfit',
     textEffect: 'Pop In',
     effectSpeed: 5,
@@ -124,9 +153,16 @@ export const initialLyrics: LyricBlock[] = [
     x: 0,
     y: 100,
     effect: 'Glitch',
+    inEffect: 'Glitch',
+    outEffect: 'None',
     effectIntensity: 8,
     effectStartFrame: 50,
     effectEndFrame: 100,
+    effectSwitchFrame: 75,
+    fadeInFrames: 8,
+    fadeOutFrames: 8,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
     font: 'Outfit',
     textEffect: 'Glitch Entry',
     effectSpeed: 8,

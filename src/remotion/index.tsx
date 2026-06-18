@@ -19,6 +19,10 @@ const defaultGlobalSettings: GlobalSettings = {
   outlineColor: '#000000',
   textBackgroundColor: 'transparent',
   outlineWidth: 2,
+  fadeInFrames: 8,
+  fadeOutFrames: 8,
+  fadeInPattern: 'Linear',
+  fadeOutPattern: 'Linear',
 };
 
 const defaultProps: RenderProps = {

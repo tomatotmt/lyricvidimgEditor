@@ -50,6 +50,11 @@ const mulberry32 = (seed: number) => {
 const seeded = (key: string, index: number) => mulberry32(hashString(`${key}:${index}`));
 const splitText = (text: string) => [...text].filter((char) => char !== '\n');
 
+const needsDenseFlythrough = (name: ThreeTextEffectName) =>
+  name === 'Glyph Corridor Rush' ||
+  name === 'Kanji Gate Dash' ||
+  name === 'Chromatic Speed Tunnel';
+
 const createTextTexture = (
   text: string,
   fontFamily: string,
@@ -144,6 +149,9 @@ const getFrameSettings = (lyric: LyricBlock, frame: number) => {
     effectIntensity: lyric.effectIntensity,
     effectStartFrame: lyric.effectStartFrame,
     effectEndFrame: lyric.effectEndFrame,
+    effectSwitchFrame: lyric.effectSwitchFrame ?? Math.round((lyric.effectStartFrame + lyric.effectEndFrame) / 2),
+    fadeInFrames: lyric.fadeInFrames ?? 0,
+    fadeOutFrames: lyric.fadeOutFrames ?? 0,
     effectSpeed: lyric.effectSpeed,
   };
   const keyframes = [...(lyric.keyframes ?? [])].sort((a, b) => a.frame - b.frame);
@@ -170,7 +178,7 @@ const getFrameSettings = (lyric: LyricBlock, frame: number) => {
     settings.outlineColor = prev.outlineColor ?? settings.outlineColor;
   }
 
-  const numericProperties = new Set(['x', 'y', 'scale', 'rotation', 'outlineWidth', 'effectIntensity', 'effectStartFrame', 'effectEndFrame', 'effectSpeed']);
+  const numericProperties = new Set(['x', 'y', 'scale', 'rotation', 'outlineWidth', 'effectIntensity', 'effectStartFrame', 'effectEndFrame', 'effectSwitchFrame', 'fadeInFrames', 'fadeOutFrames', 'effectSpeed']);
   const propertyFrames = keyframes.filter((keyframe) => keyframe.property);
   for (const property of new Set(propertyFrames.map((keyframe) => keyframe.property))) {
     if (!property) continue;
@@ -197,6 +205,24 @@ const getBasePosition = (lyric: LyricBlock, frame: number): Vec3 => {
   return [settings.x / 130, -settings.y / 130, 0];
 };
 
+const applyBaseTransform = (position: Vec3, base: Vec3, rotationDeg = 0): Vec3 => {
+  const radians = rotationDeg * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const x = position[0] * cos - position[1] * sin;
+  const y = position[0] * sin + position[1] * cos;
+  return [base[0] + x, base[1] + y, position[2] + base[2]];
+};
+
+const addZRotation = (rotation: Vec3, rotationDeg = 0): Vec3 => [
+  rotation[0],
+  rotation[1],
+  rotation[2] + rotationDeg * Math.PI / 180,
+];
+
+const flythroughScale = (progressValue: number) =>
+  Math.max(0.45, 1.8 - progressValue * 1.6);
+
 const getProgress = (frame: number, lyric: LyricBlock) =>
   clamp((frame - lyric.startFrame) / Math.max(1, lyric.endFrame - lyric.startFrame));
 
@@ -215,6 +241,22 @@ const presetColor = (base: string, name: string, frame: number, index: number) =
   return base;
 };
 
+const getFadeOpacity = (lyric: LyricBlock, globalSettings: GlobalSettings, frame: number) => {
+  const fadeInPattern = lyric.fadeInPattern ?? globalSettings.fadeInPattern ?? 'None';
+  const fadeOutPattern = lyric.fadeOutPattern ?? globalSettings.fadeOutPattern ?? 'None';
+  const fadeInFrames = Math.max(0, Math.round(lyric.fadeInFrames ?? globalSettings.fadeInFrames ?? 0));
+  const fadeOutFrames = Math.max(0, Math.round(lyric.fadeOutFrames ?? globalSettings.fadeOutFrames ?? 0));
+  let opacity = 1;
+
+  if (fadeInPattern !== 'None' && fadeInFrames > 0) {
+    opacity = Math.min(opacity, clamp((frame - lyric.startFrame) / fadeInFrames));
+  }
+  if (fadeOutPattern !== 'None' && fadeOutFrames > 0) {
+    opacity = Math.min(opacity, clamp((lyric.endFrame - frame - 1) / fadeOutFrames));
+  }
+  return opacity;
+};
+
 const cameraForPreset = (name: ThreeTextEffectName, frame: number, lyric: LyricBlock): CameraState => {
   const p = getProgress(frame, lyric);
   const t = frame - lyric.startFrame;
@@ -228,6 +270,10 @@ const cameraForPreset = (name: ThreeTextEffectName, frame: number, lyric: LyricB
     case 'Data Glitch Corridor':
     case 'Lyrics Roller Coaster':
       return {position: [Math.sin(p * Math.PI * 3) * 2.4, Math.cos(p * Math.PI * 2) * 1.2, 14 - p * 24], rotation: [Math.sin(t * 0.04) * 0.18, Math.sin(t * 0.03) * 0.2, Math.sin(t * 0.02) * 0.08], fov: 62};
+    case 'Glyph Corridor Rush':
+    case 'Kanji Gate Dash':
+    case 'Chromatic Speed Tunnel':
+      return {position: [0, 0, 8], rotation: [0, 0, 0], fov: name === 'Kanji Gate Dash' ? 68 : 76};
     case 'Camera Whip Words':
       return {position: [(1 - easeOut(p)) * -8 + Math.sin(t * 0.22) * 0.5, 0, 8], rotation: [0, (1 - easeOut(p)) * 0.9, Math.sin(t * 0.16) * 0.08], fov: 54};
     case 'Orbit Camera Snap':
@@ -287,6 +333,66 @@ const letterStateForPreset = (
       const depth = -Math.floor(index / 10) * 4 - ring * 0.2 + p * 32;
       return {...state, position: [Math.cos(angle) * 4.4, Math.sin(angle) * 2.5, depth], rotation: [0, 0, angle + Math.PI / 2], scale: frameSettings.scale * 0.8, opacity: clamp(1 - Math.abs(depth) / 20) * flicker};
     }
+    case 'Glyph Corridor Rush': {
+      const lane = index % 4;
+      const row = Math.floor(index / 4);
+      const side = lane < 2 ? -1 : 1;
+      const y = lane % 2 === 0 ? -2.05 : 1.85;
+      const z = -row * 4.2 + p * 58;
+      const speedGlow = 0.45 + clamp(Math.sin(p * Math.PI) + 0.2, 0, 1) * 0.55;
+      const localPosition: Vec3 = [side * (4.8 + Math.sin(row * 0.9) * 0.34), y + Math.sin(frame * 0.08 + row) * 0.08, z];
+      const localRotation: Vec3 = [0, side > 0 ? -Math.PI / 2.8 : Math.PI / 2.8, side * 0.08];
+      return {
+        ...state,
+        position: applyBaseTransform(localPosition, base, frameSettings.rotation),
+        rotation: addZRotation(localRotation, frameSettings.rotation),
+        scale: frameSettings.scale * flythroughScale(p) * (0.96 + (lane % 2) * 0.12),
+        opacity: clamp(1 - Math.abs(z - 8) / 24) * speedGlow * flicker,
+        color: index % 3 === 0 ? '#67e8f9' : textColor,
+      };
+    }
+    case 'Kanji Gate Dash': {
+      const gate = Math.floor(index / 3);
+      const part = index % 3;
+      const z = -gate * 5.2 + p * 60;
+      const gatePulse = 1 + Math.sin(frame * 0.16 + gate) * 0.08;
+      const positions: Vec3[] = [
+        [-4.55, 0, z],
+        [4.55, 0, z],
+        [0, 3.15, z],
+      ];
+      const rotations: Vec3[] = [
+        [0, Math.PI / 2.9, 0.08],
+        [0, -Math.PI / 2.9, -0.08],
+        [-0.35, 0, 0],
+      ];
+      return {
+        ...state,
+        position: applyBaseTransform(positions[part], base, frameSettings.rotation),
+        rotation: addZRotation(rotations[part], frameSettings.rotation),
+        scale: frameSettings.scale * flythroughScale(p) * (part === 2 ? 0.92 : 1.08) * gatePulse,
+        opacity: clamp(1 - Math.abs(z - 8) / 27) * flicker,
+        color: gate % 2 === 0 ? textColor : '#f8fafc',
+      };
+    }
+    case 'Chromatic Speed Tunnel': {
+      const ring = index % 12;
+      const depthLayer = Math.floor(index / 12);
+      const radius = 3.35 + Math.sin(depthLayer * 1.3) * 0.42;
+      const spin = angle + p * Math.PI * 8 + depthLayer * 0.25;
+      const z = -2 - depthLayer * 4.0 - ring * 0.08 + p * 56;
+      const channel = index % 3;
+      const color = channel === 0 ? '#fb7185' : channel === 1 ? '#67e8f9' : textColor;
+      const offset = channel === 0 ? -0.16 : channel === 1 ? 0.16 : 0;
+      return {
+        ...state,
+        position: applyBaseTransform([Math.cos(spin) * (radius + offset), Math.sin(spin) * (radius * 0.58 + offset * 0.5), z], base, frameSettings.rotation),
+        rotation: addZRotation([0.12, 0, spin + Math.PI / 2], frameSettings.rotation),
+        scale: frameSettings.scale * flythroughScale(p) * 0.92,
+        opacity: clamp(1 - Math.abs(z - 8) / 23) * (0.75 + Math.sin(frame * 0.55 + index) * 0.2),
+        color,
+      };
+    }
     case 'Spiral Word Galaxy':
       return {...state, position: [base[0] + Math.cos(angle * 2 + p * 5) * (1.2 + index * 0.18), base[1] + (index - total / 2) * 0.1, Math.sin(angle * 2 + p * 5) * (1.2 + index * 0.18)], rotation: [0.2, angle + p * 4, 0], scale: frameSettings.scale * 0.9};
     case 'Impact Billboard 3D':
@@ -341,29 +447,37 @@ const ThreeLyric: React.FC<{
   frame: number;
 }> = ({lyric, globalSettings, frame}) => {
   const effectName = lyric.textEffect as ThreeTextEffectName;
-  const chars = splitText(lyric.text);
+  const sourceChars = splitText(lyric.text);
+  const baseChars = sourceChars.length > 0 ? sourceChars : [' '];
+  const chars = needsDenseFlythrough(effectName)
+    ? Array.from({length: Math.max(baseChars.length, 36)}, (_, index) => baseChars[index % baseChars.length])
+    : baseChars;
   const fontFamily = lyric.font || globalSettings.font || 'Noto Sans JP';
   const frameSettings = getFrameSettings(lyric, frame);
   const textColor = frameSettings.textColor || globalSettings.textColor || '#ffffff';
   const outlineColor = frameSettings.outlineColor || globalSettings.outlineColor || 'transparent';
   const backgroundColor = frameSettings.textBackgroundColor || globalSettings.textBackgroundColor || 'transparent';
   const outlineWidth = frameSettings.outlineWidth ?? globalSettings.outlineWidth ?? 2;
+  const fadeOpacity = getFadeOpacity(lyric, globalSettings, frame);
 
   return (
     <>
       <group>
-        {chars.map((char, index) => (
-          <TextPlane
-            key={`${lyric.id}-${index}-${char}`}
-            text={char.trim() ? char : ' '}
-            fontFamily={fontFamily}
-            textColor={textColor}
-            outlineColor={outlineColor}
-            backgroundColor={backgroundColor}
-            outlineWidth={outlineWidth}
-            state={letterStateForPreset(effectName, lyric, frame, index, chars.length, textColor)}
-          />
-        ))}
+        {chars.map((char, index) => {
+          const state = letterStateForPreset(effectName, lyric, frame, index, chars.length, textColor);
+          return (
+            <TextPlane
+              key={`${lyric.id}-${index}-${char}`}
+              text={char.trim() ? char : ' '}
+              fontFamily={fontFamily}
+              textColor={textColor}
+              outlineColor={outlineColor}
+              backgroundColor={backgroundColor}
+              outlineWidth={outlineWidth}
+              state={{...state, opacity: state.opacity * fadeOpacity}}
+            />
+          );
+        })}
       </group>
     </>
   );

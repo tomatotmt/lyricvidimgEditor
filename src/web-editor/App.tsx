@@ -22,12 +22,17 @@ const App: React.FC = () => {
     outlineColor: '#000000',
     textBackgroundColor: 'transparent',
     outlineWidth: 2,
+    fadeInFrames: 8,
+    fadeOutFrames: 8,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
   });
   const [activeTab, setActiveTab] = useState<'edit' | 'input' | 'output' | 'help'>('input');
   const [player, setPlayer] = useState<PlayerRef | null>(null);
   const [previewHeight, setPreviewHeight] = useState(440);
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
   const [previewPositionDragEnabled, setPreviewPositionDragEnabled] = useState(false);
+  const [repeatSelectedBlockEnabled, setRepeatSelectedBlockEnabled] = useState(false);
   const undoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
   const redoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
   const selectedBlock = lyrics.find((lyric) => lyric.id === selectedId);
@@ -72,14 +77,33 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!player) return;
-    const handleFrameUpdate = () => setCurrentFrame(Math.round(player.getCurrentFrame()));
+    const handleFrameUpdate = () => {
+      const frame = Math.round(player.getCurrentFrame());
+      if (repeatSelectedBlockEnabled && selectedBlock && frame >= selectedBlock.endFrame) {
+        player.seekTo(selectedBlock.startFrame);
+        setCurrentFrame(selectedBlock.startFrame);
+        return;
+      }
+      setCurrentFrame(frame);
+    };
     player.addEventListener('frameupdate', handleFrameUpdate);
     return () => player.removeEventListener('frameupdate', handleFrameUpdate);
-  }, [player]);
+  }, [player, repeatSelectedBlockEnabled, selectedBlock?.id, selectedBlock?.startFrame, selectedBlock?.endFrame]);
 
   const handleSeek = (frame: number) => {
     setCurrentFrame(frame);
     player?.seekTo(frame);
+  };
+
+  const togglePlayback = () => {
+    if (!player) return;
+    if (repeatSelectedBlockEnabled && selectedBlock) {
+      const frame = Math.round(player.getCurrentFrame());
+      if (frame < selectedBlock.startFrame || frame >= selectedBlock.endFrame) {
+        handleSeek(selectedBlock.startFrame);
+      }
+    }
+    player.toggle();
   };
 
   const updateSelectedPosition = (x: number, y: number) => {
@@ -125,9 +149,16 @@ const App: React.FC = () => {
       y: 0,
       rotation: 0,
       effect: 'None',
+      inEffect: 'None',
+      outEffect: 'None',
       effectIntensity: 5,
       effectStartFrame: currentFrame,
       effectEndFrame: Math.min(durationInFrames, currentFrame + 30),
+      effectSwitchFrame: Math.min(durationInFrames, currentFrame + 15),
+      fadeInFrames: globalSettings.fadeInFrames ?? 8,
+      fadeOutFrames: globalSettings.fadeOutFrames ?? 8,
+      fadeInPattern: globalSettings.fadeInPattern ?? 'Linear',
+      fadeOutPattern: globalSettings.fadeOutPattern ?? 'Linear',
       font: globalSettings.font,
       textEffect: globalSettings.textEffect,
       effectSpeed: globalSettings.effectSpeed,
@@ -245,7 +276,7 @@ const App: React.FC = () => {
       }
       if (event.code === 'Space') {
         event.preventDefault();
-        player?.toggle();
+        togglePlayback();
         return;
       }
       if (event.key === 'ArrowRight') {
@@ -259,7 +290,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentFrame, durationInFrames, player, selectedId, lyrics, globalSettings]);
+  }, [currentFrame, durationInFrames, player, selectedId, lyrics, globalSettings, repeatSelectedBlockEnabled, selectedBlock]);
 
   return (
     <div style={{display: 'grid', gridTemplateColumns: `minmax(0, 1fr) 8px minmax(340px, ${rightPanelWidth}px)`, gap: 10, padding: 18, height: '100vh', boxSizing: 'border-box'}}>
@@ -286,6 +317,16 @@ const App: React.FC = () => {
                   style={{width: 14, height: 14}}
                 />
                 文字位置ドラッグ
+              </label>
+              <label style={{display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', letterSpacing: 0, cursor: selectedBlock ? 'pointer' : 'not-allowed', opacity: selectedBlock ? 1 : 0.55}}>
+                <input
+                  type="checkbox"
+                  checked={repeatSelectedBlockEnabled}
+                  onChange={(event) => setRepeatSelectedBlockEnabled(event.target.checked)}
+                  disabled={!selectedBlock}
+                  style={{width: 14, height: 14}}
+                />
+                選択テキスト範囲をリピート再生
               </label>
             </div>
             <span>{selectedBlock ? `選択中: ${selectedBlock.text}` : '未選択'}</span>
@@ -350,7 +391,7 @@ const App: React.FC = () => {
           <div style={{display: 'flex', gap: 8}}>
             <button onClick={undo} title="戻す (Ctrl+Z)">↶</button>
             <button onClick={redo} title="やり直し (Shift+Ctrl+Z)">↷</button>
-            <button onClick={() => player?.toggle()} title="再生/停止 (Space)">▶</button>
+            <button onClick={togglePlayback} title="再生/停止 (Space)">▶</button>
           </div>
           <div>
             フレーム: <span style={{color: '#f3f4f6', fontWeight: 'bold'}}>{currentFrame}f</span> / {durationInFrames}f

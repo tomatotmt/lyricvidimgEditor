@@ -1,10 +1,12 @@
 import type {CSSProperties} from 'react';
 
 export type EffectKind = 'effect' | 'textEffect';
+export type EffectCategory = 'All' | 'Basic' | 'Motion' | 'Light / Color' | 'Glitch / AI' | 'Character' | '3D' | 'Cinematic';
 
 export type EffectPreset = {
   name: string;
   kind: EffectKind;
+  category?: EffectCategory;
   character?: boolean;
 };
 
@@ -107,6 +109,9 @@ export const TEXT_EFFECT_OPTIONS = [
   'Broken Subtitle Space',
   'Lyrics Roller Coaster',
   'Massive Word Eclipse',
+  'Glyph Corridor Rush',
+  'Kanji Gate Dash',
+  'Chromatic Speed Tunnel',
 ] as const;
 
 export const THREE_TEXT_EFFECT_OPTIONS = [
@@ -132,16 +137,148 @@ export const THREE_TEXT_EFFECT_OPTIONS = [
   'Broken Subtitle Space',
   'Lyrics Roller Coaster',
   'Massive Word Eclipse',
+  'Glyph Corridor Rush',
+  'Kanji Gate Dash',
+  'Chromatic Speed Tunnel',
 ] as const;
+
+export const EFFECT_CATEGORIES: readonly EffectCategory[] = [
+  'All',
+  'Basic',
+  'Motion',
+  'Light / Color',
+  'Glitch / AI',
+  'Cinematic',
+  '3D',
+] as const;
+
+export const TEXT_EFFECT_CATEGORIES: readonly EffectCategory[] = [
+  'All',
+  'Basic',
+  'Motion',
+  'Glitch / AI',
+  'Character',
+  'Cinematic',
+  '3D',
+] as const;
+
+const DISPLAY_EFFECT_CATEGORIES: Record<(typeof EFFECT_OPTIONS)[number], EffectCategory> = {
+  None: 'Basic',
+  Pop: 'Basic',
+  Slide: 'Basic',
+  Shake: 'Motion',
+  Zoom: 'Basic',
+  Blur: 'Basic',
+  Glitch: 'Glitch / AI',
+  Bounce: 'Motion',
+  Neon: 'Light / Color',
+  Glow: 'Light / Color',
+  Wiggle: 'Motion',
+  Floating: 'Motion',
+  Vibration: 'Motion',
+  'Slow Zoom': 'Basic',
+  'Neon Flicker': 'Light / Color',
+  'Echo / Trail': 'Light / Color',
+  'Color Cycle': 'Light / Color',
+  'Chromatic Aberration': 'Light / Color',
+  'Cinematic Pan': 'Cinematic',
+  'Text Scramble Loop': 'Glitch / AI',
+  'Circular Spin': 'Motion',
+  'Multi-Reflection': 'Light / Color',
+  'Heartbeat Pulse': 'Motion',
+  'Shadow Drift': 'Light / Color',
+  'Solemn Scale': 'Basic',
+  '3D Text Tunnel': '3D',
+};
+
+const TEXT_BASIC_EFFECTS = new Set<string>(['None', 'Fade In']);
+const TEXT_MOTION_EFFECTS = new Set<string>([
+  'Bounce In',
+  'Zoom In',
+  'Slide In',
+  'Pop In',
+  'Slide & Stop',
+  'Whip Pan',
+  'Elastic Scale',
+  'Kinetic Impact',
+  'Drop & Bounce',
+  'Rotate & Scale',
+  'Slash Cut-In',
+  'Impact Shake & Blur',
+  'Spinning Drop',
+]);
+const TEXT_GLITCH_EFFECTS = new Set<string>([
+  'Glitch Entry',
+  'Random Decode',
+  'TV Static Reveal',
+  'Matrix Rain',
+  'Pixelate Transition',
+  'Data Glitch Corridor',
+  'Broken Subtitle Space',
+]);
+const TEXT_CHARACTER_EFFECTS = new Set<string>([
+  'Typewriter',
+  'Staggered Bounce',
+  'Scatter to Gather',
+  'Tracking Expander',
+  'Word by Word Fade',
+  'Horizontal Slice Merge',
+  'Vertical Slice Merge',
+]);
+const TEXT_CINEMATIC_EFFECTS = new Set<string>([
+  'Mask Wipe',
+  'Blur Reveal',
+  'Shatter Fade',
+  'Flash & Fade',
+  'Ghostly Rise',
+  'Liquid Melt',
+]);
+const TEXT_3D_EXTRA_EFFECTS = new Set<string>([
+  '3D Flip',
+  '3D Circular Pan',
+  '3D Depth Flyby',
+  '3D Spiral Drop',
+  '3D Char Flip Board',
+]);
+
+export const getEffectCategory = (name: string): EffectCategory =>
+  DISPLAY_EFFECT_CATEGORIES[name as (typeof EFFECT_OPTIONS)[number]] ?? 'Basic';
+
+export const getTextEffectCategory = (name: string): EffectCategory => {
+  if (
+    THREE_TEXT_EFFECT_OPTIONS.includes(name as (typeof THREE_TEXT_EFFECT_OPTIONS)[number]) ||
+    TEXT_3D_EXTRA_EFFECTS.has(name)
+  ) {
+    return '3D';
+  }
+  if (name.startsWith('Char ') || TEXT_CHARACTER_EFFECTS.has(name)) {
+    return 'Character';
+  }
+  if (TEXT_GLITCH_EFFECTS.has(name)) {
+    return 'Glitch / AI';
+  }
+  if (TEXT_MOTION_EFFECTS.has(name)) {
+    return 'Motion';
+  }
+  if (TEXT_CINEMATIC_EFFECTS.has(name)) {
+    return 'Cinematic';
+  }
+  if (TEXT_BASIC_EFFECTS.has(name)) {
+    return 'Basic';
+  }
+  return 'Cinematic';
+};
 
 export const EFFECT_PRESETS: EffectPreset[] = EFFECT_OPTIONS.map((name) => ({
   name,
   kind: 'effect',
+  category: getEffectCategory(name),
 }));
 
 export const TEXT_EFFECT_PRESETS: EffectPreset[] = TEXT_EFFECT_OPTIONS.map((name) => ({
   name,
   kind: 'textEffect',
+  category: getTextEffectCategory(name),
   character:
     THREE_TEXT_EFFECT_OPTIONS.includes(name as (typeof THREE_TEXT_EFFECT_OPTIONS)[number]) ||
     name.startsWith('Char ') ||
@@ -348,6 +485,8 @@ export const getDisplayEffectAnimation = (
       return {};
     case 'Shake':
       return {x: ((ctx.frame % 2) ? 1 : -1) * intensity, y: ((ctx.frame % 3) - 1) * intensity};
+    case 'Slide':
+      return {x: (1 - Math.sin(p * Math.PI)) * -intensity * 8};
     case 'Pop':
     case 'Zoom':
       return {scale: 1 + Math.sin(p * Math.PI) * intensity * 0.06};

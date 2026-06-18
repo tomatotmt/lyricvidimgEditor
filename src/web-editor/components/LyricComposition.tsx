@@ -62,6 +62,9 @@ const getFrameSettings = (lyric: LyricBlock, frame: number) => {
     effectIntensity: lyric.effectIntensity,
     effectStartFrame: lyric.effectStartFrame,
     effectEndFrame: lyric.effectEndFrame,
+    effectSwitchFrame: lyric.effectSwitchFrame ?? Math.round((lyric.effectStartFrame + lyric.effectEndFrame) / 2),
+    fadeInFrames: lyric.fadeInFrames ?? 0,
+    fadeOutFrames: lyric.fadeOutFrames ?? 0,
     effectSpeed: lyric.effectSpeed,
   };
   const keyframes = [...(lyric.keyframes ?? [])].sort((a, b) => a.frame - b.frame);
@@ -88,7 +91,7 @@ const getFrameSettings = (lyric: LyricBlock, frame: number) => {
     settings.outlineColor = prev.outlineColor ?? settings.outlineColor;
   }
 
-  const numericProperties = new Set(['x', 'y', 'scale', 'rotation', 'outlineWidth', 'effectIntensity', 'effectStartFrame', 'effectEndFrame', 'effectSpeed']);
+  const numericProperties = new Set(['x', 'y', 'scale', 'rotation', 'outlineWidth', 'effectIntensity', 'effectStartFrame', 'effectEndFrame', 'effectSwitchFrame', 'fadeInFrames', 'fadeOutFrames', 'effectSpeed']);
   const propertyFrames = keyframes.filter((keyframe) => keyframe.property);
   for (const property of new Set(propertyFrames.map((keyframe) => keyframe.property))) {
     if (!property) continue;
@@ -115,6 +118,82 @@ const renderText = (text: string, textEffect: string, displayEffect: string, fra
     return scrambleText(text, frame);
   }
   return text;
+};
+
+const isEnabledEffect = (effect: string | undefined) => Boolean(effect && effect !== 'None');
+
+const clampFrame = (value: number, startFrame: number, endFrame: number) =>
+  Math.max(startFrame, Math.min(endFrame, Math.round(value)));
+
+const getFadeOpacity = (
+  lyric: LyricBlock,
+  globalSettings: GlobalSettings,
+  frameSettings: ReturnType<typeof getFrameSettings>,
+  frame: number
+) => {
+  const fadeInPattern = lyric.fadeInPattern ?? globalSettings.fadeInPattern ?? 'None';
+  const fadeOutPattern = lyric.fadeOutPattern ?? globalSettings.fadeOutPattern ?? 'None';
+  const fadeInFrames = Math.max(0, Math.round(lyric.fadeInFrames ?? globalSettings.fadeInFrames ?? frameSettings.fadeInFrames ?? 0));
+  const fadeOutFrames = Math.max(0, Math.round(lyric.fadeOutFrames ?? globalSettings.fadeOutFrames ?? frameSettings.fadeOutFrames ?? 0));
+  let opacity = 1;
+
+  if (fadeInPattern !== 'None' && fadeInFrames > 0) {
+    opacity = Math.min(opacity, Math.max(0, Math.min(1, (frame - lyric.startFrame) / fadeInFrames)));
+  }
+  if (fadeOutPattern !== 'None' && fadeOutFrames > 0) {
+    opacity = Math.min(opacity, Math.max(0, Math.min(1, (lyric.endFrame - frame - 1) / fadeOutFrames)));
+  }
+  return opacity;
+};
+
+const getActiveDisplayEffect = (
+  lyric: LyricBlock,
+  globalSettings: GlobalSettings,
+  frameSettings: ReturnType<typeof getFrameSettings>,
+  frame: number
+) => {
+  const fadeInFrames = Math.max(0, Math.round(lyric.fadeInFrames ?? globalSettings.fadeInFrames ?? frameSettings.fadeInFrames));
+  const fadeOutFrames = Math.max(0, Math.round(lyric.fadeOutFrames ?? globalSettings.fadeOutFrames ?? frameSettings.fadeOutFrames));
+  const orderedStartFrame = lyric.startFrame + fadeInFrames;
+  const orderedEndFrame = Math.max(orderedStartFrame + 1, lyric.endFrame - fadeOutFrames);
+  const startFrame = Math.max(orderedStartFrame, Math.round(frameSettings.effectStartFrame));
+  const endFrame = Math.max(startFrame + 1, Math.min(orderedEndFrame, Math.round(frameSettings.effectEndFrame)));
+  if (frame < startFrame || frame >= endFrame) {
+    return null;
+  }
+
+  const inEffect = lyric.inEffect ?? lyric.effect ?? 'None';
+  const outEffect = lyric.outEffect ?? 'None';
+  const hasIn = isEnabledEffect(inEffect);
+  const hasOut = isEnabledEffect(outEffect);
+  if (!hasIn && !hasOut) {
+    return null;
+  }
+
+  const defaultSwitch = Math.round((startFrame + endFrame) / 2);
+  const switchFrame = hasIn && hasOut
+    ? clampFrame(frameSettings.effectSwitchFrame ?? defaultSwitch, startFrame + 1, endFrame - 1)
+    : endFrame;
+
+  if (hasIn && (!hasOut || frame < switchFrame)) {
+    return {
+      effect: inEffect,
+      contextFrame: frame,
+      startFrame,
+      endFrame: hasOut ? switchFrame : endFrame,
+    };
+  }
+
+  const outStartFrame = hasIn ? switchFrame : startFrame;
+  const outEndFrame = endFrame;
+  const outDuration = Math.max(1, outEndFrame - outStartFrame);
+  const elapsed = frame - outStartFrame;
+  return {
+    effect: outEffect,
+    contextFrame: outEndFrame - 1 - elapsed,
+    startFrame: outStartFrame,
+    endFrame: outStartFrame + outDuration,
+  };
 };
 
 export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings, audioUrl}) => {
@@ -146,11 +225,8 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
         const outlineColor = frameSettings.outlineColor || globalSettings.outlineColor || 'transparent';
         const outlineWidth = frameSettings.outlineWidth ?? globalSettings.outlineWidth ?? 2;
         const lyricBackground = frameSettings.textBackgroundColor || globalSettings.textBackgroundColor || 'transparent';
-        const displayActive =
-          lyric.effect &&
-          lyric.effect !== 'None' &&
-          frame >= frameSettings.effectStartFrame &&
-          frame < frameSettings.effectEndFrame;
+        const activeDisplayEffect = getActiveDisplayEffect(lyric, globalSettings, frameSettings, frame);
+        const fadeOpacity = getFadeOpacity(lyric, globalSettings, frameSettings, frame);
 
         const baseTransform = `translate(${frameSettings.x}px, ${frameSettings.y}px) rotate(${frameSettings.rotation}deg) scale(${frameSettings.scale})`;
         const baseShadow = outlineShadow(outlineColor, outlineWidth);
@@ -162,11 +238,12 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
           intensity: frameSettings.effectIntensity,
         };
 
-        const displayAnimation = displayActive
-          ? getDisplayEffectAnimation(lyric.effect, {
+        const displayAnimation = activeDisplayEffect
+          ? getDisplayEffectAnimation(activeDisplayEffect.effect, {
               ...commonContext,
-              startFrame: frameSettings.effectStartFrame,
-              endFrame: frameSettings.effectEndFrame,
+              frame: activeDisplayEffect.contextFrame,
+              startFrame: activeDisplayEffect.startFrame,
+              endFrame: activeDisplayEffect.endFrame,
             }, textColor)
           : {};
 
@@ -191,11 +268,12 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
                 const charContext = {...commonContext, index, total: chars.length};
                 const charAnimation = mergeAnimation(
                   getTextEffectAnimation(lyric.textEffect, charContext, char),
-                  displayActive
-                    ? getDisplayEffectAnimation(lyric.effect, {
+                  activeDisplayEffect
+                    ? getDisplayEffectAnimation(activeDisplayEffect.effect, {
                         ...charContext,
-                        startFrame: frameSettings.effectStartFrame,
-                        endFrame: frameSettings.effectEndFrame,
+                        frame: activeDisplayEffect.contextFrame,
+                        startFrame: activeDisplayEffect.startFrame,
+                        endFrame: activeDisplayEffect.endFrame,
                       }, textColor)
                     : {}
                 );
@@ -209,9 +287,10 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
                       whiteSpace: 'pre',
                       willChange: 'transform, opacity, filter',
                       ...style,
+                      opacity: Number(style.opacity ?? 1) * fadeOpacity,
                     }}
                   >
-                    {renderText(charAnimation.text ?? char, lyric.textEffect, lyric.effect, frame - index * 3)}
+                    {renderText(charAnimation.text ?? char, lyric.textEffect, activeDisplayEffect?.effect ?? 'None', frame - index * 3)}
                   </span>
                 );
               })}
@@ -238,9 +317,10 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
               willChange: 'transform, opacity, filter',
               ...textBackgroundStyle(lyricBackground),
               ...animatedStyle,
+              opacity: Number(animatedStyle.opacity ?? 1) * fadeOpacity,
             }}
           >
-            {renderText(animation.text ?? lyric.text, lyric.textEffect, lyric.effect, frame)}
+            {renderText(animation.text ?? lyric.text, lyric.textEffect, activeDisplayEffect?.effect ?? 'None', frame)}
           </div>
         );
       })}
