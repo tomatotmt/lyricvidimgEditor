@@ -29,6 +29,21 @@ export interface LyricBlock {
   outlineColor?: string;
   outlineWidth?: number;
   keyframes?: LyricKeyframe[];
+  tokenMode?: LyricTokenMode;
+  tokens?: LyricToken[];
+  role?: LyricRole;
+}
+
+export type LyricRole = 'main' | 'chorus' | 'emphasis' | 'overlap' | 'adlib' | 'english' | 'instrumental';
+
+export type LyricTokenMode = 'auto' | 'word' | 'mora' | 'char';
+
+export interface LyricToken {
+  id: string;
+  text: string;
+  index: number;
+  startFrame: number;
+  endFrame: number;
 }
 
 export type LyricKeyframeProperty =
@@ -85,14 +100,193 @@ export interface GlobalSettings {
   fadeOutPattern?: string;
 }
 
+export type BeatMarker = {
+  id?: string;
+  frame: number;
+  strength: number;
+  source?: 'detected' | 'manual' | 'grid' | 'imported';
+};
+
 export const FONT_OPTIONS = [
   'Outfit',
   'Inter',
+  'Impact',
+  'Arial Black',
+  'Trebuchet MS',
+  'Georgia',
+  'Courier New',
   'New Tegomin',
   'Noto Sans JP',
   'Murecho',
   'Sawarabi Mincho',
-];
+  'Yu Gothic',
+  'Yu Mincho',
+  'Meiryo',
+  'MS Gothic',
+  'MS Mincho',
+] as const;
+
+export type FontCategory = 'All' | 'Readable' | 'Impact' | 'Emotional' | 'Cute' | 'Japanese' | 'Cyber';
+
+export type FontMetadata = {
+  name: string;
+  category: Exclude<FontCategory, 'All'>;
+  displayName: string;
+  sample: string;
+  description: string;
+  tags: readonly string[];
+};
+
+export const FONT_CATEGORIES: readonly FontCategory[] = [
+  'All',
+  'Readable',
+  'Impact',
+  'Emotional',
+  'Cute',
+  'Japanese',
+  'Cyber',
+] as const;
+
+export const FONT_METADATA: Record<(typeof FONT_OPTIONS)[number], FontMetadata> = {
+  Outfit: {
+    name: 'Outfit',
+    category: 'Readable',
+    displayName: 'Outfit',
+    sample: '愛して もっと',
+    description: '英字と短い字幕がすっきり見える現代的なサンセリフ。',
+    tags: ['latin', 'clean', 'modern'],
+  },
+  Inter: {
+    name: 'Inter',
+    category: 'Readable',
+    displayName: 'Inter',
+    sample: 'LYRIC VIDEO',
+    description: 'UI的で読みやすく、説明的な字幕に向いています。',
+    tags: ['latin', 'subtitle', 'clean'],
+  },
+  Impact: {
+    name: 'Impact',
+    category: 'Impact',
+    displayName: 'Impact',
+    sample: 'SHOUT',
+    description: 'サビ頭や強い単語を太く押し出す定番の欧文フォント。',
+    tags: ['bold', 'chorus', 'latin'],
+  },
+  'Arial Black': {
+    name: 'Arial Black',
+    category: 'Impact',
+    displayName: 'Arial Black',
+    sample: 'BEAT DROP',
+    description: '大きな見出しやビート強調に使いやすい極太サンセリフ。',
+    tags: ['bold', 'impact', 'latin'],
+  },
+  'Trebuchet MS': {
+    name: 'Trebuchet MS',
+    category: 'Cute',
+    displayName: 'Trebuchet MS',
+    sample: 'sweet hook',
+    description: '少し丸みのあるポップな英字に向いています。',
+    tags: ['pop', 'soft', 'latin'],
+  },
+  Georgia: {
+    name: 'Georgia',
+    category: 'Emotional',
+    displayName: 'Georgia',
+    sample: 'silent night',
+    description: 'バラードや余韻のある英詞に合うセリフ体。',
+    tags: ['serif', 'ballad', 'latin'],
+  },
+  'Courier New': {
+    name: 'Courier New',
+    category: 'Cyber',
+    displayName: 'Courier New',
+    sample: 'decode_01',
+    description: 'コード、端末、デコード風の演出に使える等幅フォント。',
+    tags: ['mono', 'glitch', 'code'],
+  },
+  'New Tegomin': {
+    name: 'New Tegomin',
+    category: 'Japanese',
+    displayName: 'New Tegomin',
+    sample: '愛して もっと',
+    description: '和風、物語調、少し不穏な歌詞に合う日本語フォント。',
+    tags: ['japanese', 'serif', 'story'],
+  },
+  'Noto Sans JP': {
+    name: 'Noto Sans JP',
+    category: 'Readable',
+    displayName: 'Noto Sans JP',
+    sample: '壊れるまで',
+    description: '日本語字幕の基準にしやすい読みやすいゴシック。',
+    tags: ['japanese', 'subtitle', 'clean'],
+  },
+  Murecho: {
+    name: 'Murecho',
+    category: 'Cute',
+    displayName: 'Murecho',
+    sample: 'きらめいて',
+    description: '丸みがあり、ポップやかわいい表現に寄せやすい日本語フォント。',
+    tags: ['japanese', 'rounded', 'pop'],
+  },
+  'Sawarabi Mincho': {
+    name: 'Sawarabi Mincho',
+    category: 'Emotional',
+    displayName: 'Sawarabi Mincho',
+    sample: '夜に沈む',
+    description: '静かな歌詞や叙情的な表現に向いた明朝系フォント。',
+    tags: ['japanese', 'serif', 'ballad'],
+  },
+  'Yu Gothic': {
+    name: 'Yu Gothic',
+    category: 'Readable',
+    displayName: 'Yu Gothic',
+    sample: '君の声',
+    description: 'Windows環境で安定しやすい日本語ゴシック。',
+    tags: ['japanese', 'system', 'subtitle'],
+  },
+  'Yu Mincho': {
+    name: 'Yu Mincho',
+    category: 'Emotional',
+    displayName: 'Yu Mincho',
+    sample: '遠い記憶',
+    description: '余白や静けさを出しやすい日本語明朝。',
+    tags: ['japanese', 'system', 'serif'],
+  },
+  Meiryo: {
+    name: 'Meiryo',
+    category: 'Readable',
+    displayName: 'Meiryo',
+    sample: '歌詞字幕',
+    description: '画面上で読みやすいWindows標準の日本語フォント。',
+    tags: ['japanese', 'system', 'readable'],
+  },
+  'MS Gothic': {
+    name: 'MS Gothic',
+    category: 'Cyber',
+    displayName: 'MS Gothic',
+    sample: 'ERROR 404',
+    description: 'レトロPC、端末、グリッチ風の日本語演出に使いやすいフォント。',
+    tags: ['japanese', 'system', 'glitch'],
+  },
+  'MS Mincho': {
+    name: 'MS Mincho',
+    category: 'Japanese',
+    displayName: 'MS Mincho',
+    sample: '花は散る',
+    description: '硬質な和風や古い文書風の表現に向いています。',
+    tags: ['japanese', 'system', 'serif'],
+  },
+};
+
+export const getFontMetadata = (font: string): FontMetadata =>
+  FONT_METADATA[font as (typeof FONT_OPTIONS)[number]] ?? {
+    name: font,
+    category: 'Readable',
+    displayName: font,
+    sample: '愛して もっと',
+    description: 'カスタムフォントまたは環境依存フォントです。',
+    tags: ['custom'],
+  };
 
 export {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS};
 
@@ -115,61 +309,147 @@ export const COLOR_PALETTE = [
 
 export const initialLyrics: LyricBlock[] = [
   {
-    id: 'l1',
-    text: '愛して もっと 深く',
+    id: 'sample-main',
+    text: '夜明けまで 走って',
     track: 0,
     startFrame: 0,
-    endFrame: 60,
-    scale: 1,
-    x: 0,
-    y: -100,
-    effect: 'Heartbeat Pulse',
-    inEffect: 'Heartbeat Pulse',
-    outEffect: 'None',
+    endFrame: 88,
+    scale: 1.05,
+    x: -40,
+    y: -118,
+    rotation: 0,
+    effect: 'Slide',
+    inEffect: 'Slide',
+    outEffect: 'Blur',
     effectIntensity: 5,
     effectStartFrame: 0,
-    effectEndFrame: 60,
-    effectSwitchFrame: 30,
-    fadeInFrames: 8,
-    fadeOutFrames: 8,
+    effectEndFrame: 88,
+    effectSwitchFrame: 62,
+    fadeInFrames: 10,
+    fadeOutFrames: 12,
     fadeInPattern: 'Linear',
     fadeOutPattern: 'Linear',
-    font: 'Outfit',
-    textEffect: 'Pop In',
-    effectSpeed: 5,
+    font: 'Noto Sans JP',
+    textEffect: 'Karaoke Sweep',
+    effectSpeed: 6,
     textColor: '#ffffff',
-    textBackgroundColor: 'transparent',
-    outlineColor: '#000000',
-    outlineWidth: 2,
-    rotation: 0,
+    textBackgroundColor: 'rgba(15,23,42,.55)',
+    outlineColor: '#0f172a',
+    outlineWidth: 3,
+    tokenMode: 'word',
+    keyframes: [
+      {id: 'sample-main-x-start', frame: 0, property: 'x', value: -90},
+      {id: 'sample-main-x-end', frame: 88, property: 'x', value: 40},
+      {id: 'sample-main-scale-start', frame: 0, property: 'scale', value: 0.96},
+      {id: 'sample-main-scale-end', frame: 88, property: 'scale', value: 1.12},
+    ],
   },
   {
-    id: 'l2',
-    text: '壊れるまで',
+    id: 'sample-overlap',
+    text: '君の声が 重なる',
     track: 1,
-    startFrame: 45,
-    endFrame: 120,
-    scale: 1.2,
-    x: 0,
-    y: 100,
-    effect: 'Glitch',
-    inEffect: 'Glitch',
-    outEffect: 'None',
-    effectIntensity: 8,
-    effectStartFrame: 50,
-    effectEndFrame: 100,
-    effectSwitchFrame: 75,
-    fadeInFrames: 8,
-    fadeOutFrames: 8,
+    startFrame: 46,
+    endFrame: 136,
+    scale: 0.92,
+    x: 36,
+    y: 88,
+    rotation: -2,
+    effect: 'Glow',
+    inEffect: 'Glow',
+    outEffect: 'Shadow Drift',
+    effectIntensity: 6,
+    effectStartFrame: 46,
+    effectEndFrame: 136,
+    effectSwitchFrame: 108,
+    fadeInFrames: 12,
+    fadeOutFrames: 16,
     fadeInPattern: 'Linear',
     fadeOutPattern: 'Linear',
-    font: 'Outfit',
-    textEffect: 'Glitch Entry',
-    effectSpeed: 8,
-    textColor: '#ef4444',
+    font: 'Sawarabi Mincho',
+    textEffect: 'Word Highlight',
+    effectSpeed: 5,
+    textColor: '#bfdbfe',
     textBackgroundColor: 'transparent',
-    outlineColor: '#000000',
+    outlineColor: '#1e3a8a',
     outlineWidth: 2,
+    tokenMode: 'word',
+    keyframes: [
+      {id: 'sample-overlap-color-a', frame: 46, property: 'textColor', value: '#bfdbfe'},
+      {id: 'sample-overlap-color-b', frame: 96, property: 'textColor', value: '#fef3c7'},
+      {id: 'sample-overlap-y-a', frame: 46, property: 'y', value: 116},
+      {id: 'sample-overlap-y-b', frame: 136, property: 'y', value: 76},
+    ],
+  },
+  {
+    id: 'sample-emphasis',
+    text: 'BEAT DROP',
+    track: 2,
+    startFrame: 118,
+    endFrame: 178,
+    scale: 1.38,
+    x: 0,
+    y: 0,
     rotation: 0,
+    effect: 'Shake',
+    inEffect: 'Shake',
+    outEffect: 'Zoom',
+    effectIntensity: 8,
+    effectStartFrame: 118,
+    effectEndFrame: 178,
+    effectSwitchFrame: 152,
+    fadeInFrames: 4,
+    fadeOutFrames: 10,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
+    font: 'Impact',
+    textEffect: 'Bass Drop',
+    effectSpeed: 8,
+    textColor: '#facc15',
+    textBackgroundColor: 'rgba(127,29,29,.68)',
+    outlineColor: '#000000',
+    outlineWidth: 5,
+    tokenMode: 'word',
+    keyframes: [
+      {id: 'sample-emphasis-intensity-a', frame: 118, property: 'effectIntensity', value: 4},
+      {id: 'sample-emphasis-intensity-b', frame: 142, property: 'effectIntensity', value: 10},
+      {id: 'sample-emphasis-rotation-a', frame: 118, property: 'rotation', value: -3},
+      {id: 'sample-emphasis-rotation-b', frame: 178, property: 'rotation', value: 3},
+    ],
+  },
+  {
+    id: 'sample-fx',
+    text: '光の中へ',
+    track: 3,
+    startFrame: 172,
+    endFrame: 262,
+    scale: 0.86,
+    x: 0,
+    y: -20,
+    rotation: 0,
+    effect: '3D Text Tunnel',
+    inEffect: '3D Text Tunnel',
+    outEffect: 'Slow Zoom',
+    effectIntensity: 7,
+    effectStartFrame: 172,
+    effectEndFrame: 262,
+    effectSwitchFrame: 226,
+    fadeInFrames: 14,
+    fadeOutFrames: 18,
+    fadeInPattern: 'Linear',
+    fadeOutPattern: 'Linear',
+    font: 'Murecho',
+    textEffect: 'Neon Depth Chase',
+    effectSpeed: 6,
+    textColor: '#67e8f9',
+    textBackgroundColor: 'transparent',
+    outlineColor: '#083344',
+    outlineWidth: 3,
+    tokenMode: 'mora',
+    keyframes: [
+      {id: 'sample-fx-outline-a', frame: 172, property: 'outlineWidth', value: 1},
+      {id: 'sample-fx-outline-b', frame: 226, property: 'outlineWidth', value: 5},
+      {id: 'sample-fx-color-a', frame: 172, property: 'textColor', value: '#67e8f9'},
+      {id: 'sample-fx-color-b', frame: 262, property: 'textColor', value: '#f0abfc'},
+    ],
   },
 ];

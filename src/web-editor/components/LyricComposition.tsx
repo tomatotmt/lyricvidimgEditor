@@ -1,6 +1,6 @@
 import React from 'react';
 import {Audio, useCurrentFrame} from 'remotion';
-import {GlobalSettings, LyricBlock} from '../types';
+import {BeatMarker, GlobalSettings, LyricBlock} from '../types';
 import {
   TEXT_EFFECT_PRESETS,
   buildAnimatedStyle,
@@ -9,16 +9,23 @@ import {
   mergeAnimation,
   scrambleText,
 } from '../effects';
+import {createLyricTokens, getLyricTokens} from '../lyricTokens';
 import {ThreeTextEffectsLayer, isThreeTextEffect} from './ThreeTextEffects';
 
 interface LyricCompositionProps {
   lyrics: LyricBlock[];
   globalSettings: GlobalSettings;
   audioUrl?: string;
+  beatMarkers?: BeatMarker[];
 }
 
 const isCharacterTextEffect = (effect: string) =>
   TEXT_EFFECT_PRESETS.some((preset) => preset.name === effect && preset.character);
+
+const getRenderableTokens = (lyric: LyricBlock) =>
+  lyric.textEffect.startsWith('Char ')
+    ? createLyricTokens({...lyric, tokenMode: 'char'}, 'char')
+    : getLyricTokens(lyric);
 
 const outlineShadow = (outlineColor: string, outlineWidth: number) => {
   if (!outlineColor || outlineColor === 'transparent' || outlineWidth <= 0) {
@@ -196,8 +203,20 @@ const getActiveDisplayEffect = (
   };
 };
 
-export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings, audioUrl}) => {
+const getBeatIntensity = (frame: number, beatMarkers: BeatMarker[] | undefined) => {
+  if (!beatMarkers || beatMarkers.length === 0) return 0;
+  let strongest = 0;
+  for (const marker of beatMarkers) {
+    const distance = Math.abs(frame - marker.frame);
+    if (distance > 12) continue;
+    strongest = Math.max(strongest, Math.max(0, 1 - distance / 12) * marker.strength);
+  }
+  return Math.min(1, strongest);
+};
+
+export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings, audioUrl, beatMarkers}) => {
   const frame = useCurrentFrame();
+  const beatIntensity = getBeatIntensity(frame, beatMarkers);
   const activeLyrics = lyrics.filter(
     (lyric) => frame >= lyric.startFrame && frame < lyric.endFrame && !isThreeTextEffect(lyric.textEffect)
   );
@@ -236,6 +255,7 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
           endFrame: lyric.endFrame,
           speed: frameSettings.effectSpeed,
           intensity: frameSettings.effectIntensity,
+          beatIntensity,
         };
 
         const displayAnimation = activeDisplayEffect
@@ -248,7 +268,7 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
           : {};
 
         if (isCharacterTextEffect(lyric.textEffect)) {
-          const chars = [...lyric.text];
+          const tokens = getRenderableTokens(lyric);
           return (
             <div
               key={lyric.id}
@@ -264,13 +284,19 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
                 ...textBackgroundStyle(lyricBackground),
               }}
             >
-              {chars.map((char, index) => {
-                const charContext = {...commonContext, index, total: chars.length};
+              {tokens.map((token, index) => {
+                const tokenContext = {
+                  ...commonContext,
+                  startFrame: token.startFrame,
+                  endFrame: token.endFrame,
+                  index,
+                  total: tokens.length,
+                };
                 const charAnimation = mergeAnimation(
-                  getTextEffectAnimation(lyric.textEffect, charContext, char),
+                  getTextEffectAnimation(lyric.textEffect, tokenContext, token.text),
                   activeDisplayEffect
                     ? getDisplayEffectAnimation(activeDisplayEffect.effect, {
-                        ...charContext,
+                        ...tokenContext,
                         frame: activeDisplayEffect.contextFrame,
                         startFrame: activeDisplayEffect.startFrame,
                         endFrame: activeDisplayEffect.endFrame,
@@ -290,7 +316,7 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
                       opacity: Number(style.opacity ?? 1) * fadeOpacity,
                     }}
                   >
-                    {renderText(charAnimation.text ?? char, lyric.textEffect, activeDisplayEffect?.effect ?? 'None', frame - index * 3)}
+                    {renderText(charAnimation.text ?? token.text, lyric.textEffect, activeDisplayEffect?.effect ?? 'None', frame - index * 3)}
                   </span>
                 );
               })}

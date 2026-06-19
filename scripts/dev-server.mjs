@@ -65,6 +65,7 @@ const renderMov = async (payload) => {
   const inputProps = {
     lyrics,
     globalSettings: payload.globalSettings,
+    beatMarkers: Array.isArray(payload.beatMarkers) ? payload.beatMarkers : [],
     durationInFrames,
   };
   const tempDir = await mkdtemp(path.join(tmpdir(), 'lyricvid-export-'));

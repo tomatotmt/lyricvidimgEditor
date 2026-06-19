@@ -3,14 +3,29 @@ import {Player, PlayerRef} from '@remotion/player';
 import {TimelineTracks} from './components/TimelineTracks';
 import {EditorTabs} from './components/EditorTabs';
 import {LyricComposition} from './components/LyricComposition';
-import {GlobalSettings, initialLyrics, LyricBlock} from './types';
+import {BeatMarker, GlobalSettings, initialLyrics, LyricBlock} from './types';
+import {withGeneratedTokens} from './lyricTokens';
+
+type HistorySnapshot = {
+  lyrics: LyricBlock[];
+  globalSettings: GlobalSettings;
+  trackCount: number;
+  selectedId: string | null;
+};
+
+type ProjectStateUpdate = {
+  lyrics: LyricBlock[];
+  globalSettings: GlobalSettings;
+  trackCount?: number;
+  selectedId?: string | null;
+};
 
 const App: React.FC = () => {
   const [lyrics, setLyrics] = useState<LyricBlock[]>(initialLyrics);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [durationInFrames, setDurationInFrames] = useState(300);
-  const [trackCount, setTrackCount] = useState(10);
+  const [trackCount, setTrackCount] = useState(4);
   const [fps] = useState(30);
   const [audioFile, setAudioFile] = useState<{name: string; url: string; duration?: number} | null>(null);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
@@ -33,13 +48,17 @@ const App: React.FC = () => {
   const [rightPanelWidth, setRightPanelWidth] = useState(380);
   const [previewPositionDragEnabled, setPreviewPositionDragEnabled] = useState(false);
   const [repeatSelectedBlockEnabled, setRepeatSelectedBlockEnabled] = useState(false);
-  const undoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
-  const redoStackRef = useRef<Array<{lyrics: LyricBlock[]; globalSettings: GlobalSettings}>>([]);
+  const [beatMarkers, setBeatMarkers] = useState<BeatMarker[]>([]);
+  const [beatSnapEnabled, setBeatSnapEnabled] = useState(true);
+  const undoStackRef = useRef<HistorySnapshot[]>([]);
+  const redoStackRef = useRef<HistorySnapshot[]>([]);
   const selectedBlock = lyrics.find((lyric) => lyric.id === selectedId);
 
   const snapshot = () => ({
     lyrics: structuredClone(lyrics),
     globalSettings: structuredClone(globalSettings),
+    trackCount,
+    selectedId,
   });
 
   const recordHistory = () => {
@@ -63,7 +82,8 @@ const App: React.FC = () => {
     redoStackRef.current.push(snapshot());
     setLyrics(previous.lyrics);
     setGlobalSettings(previous.globalSettings);
-    setSelectedId((id) => (id && previous.lyrics.some((lyric) => lyric.id === id) ? id : null));
+    setTrackCount(previous.trackCount);
+    setSelectedId(previous.selectedId && previous.lyrics.some((lyric) => lyric.id === previous.selectedId) ? previous.selectedId : null);
   };
 
   const redo = () => {
@@ -72,7 +92,16 @@ const App: React.FC = () => {
     undoStackRef.current.push(snapshot());
     setLyrics(next.lyrics);
     setGlobalSettings(next.globalSettings);
-    setSelectedId((id) => (id && next.lyrics.some((lyric) => lyric.id === id) ? id : null));
+    setTrackCount(next.trackCount);
+    setSelectedId(next.selectedId && next.lyrics.some((lyric) => lyric.id === next.selectedId) ? next.selectedId : null);
+  };
+
+  const applyProjectStateUpdate = (update: ProjectStateUpdate) => {
+    recordHistory();
+    setLyrics(update.lyrics);
+    setGlobalSettings(update.globalSettings);
+    if (update.trackCount !== undefined) setTrackCount(update.trackCount);
+    if (update.selectedId !== undefined) setSelectedId(update.selectedId);
   };
 
   useEffect(() => {
@@ -168,7 +197,7 @@ const App: React.FC = () => {
       outlineWidth: globalSettings.outlineWidth ?? 2,
     };
     recordHistory();
-    setLyrics((prev) => [...prev, newBlock]);
+    setLyrics((prev) => [...prev, withGeneratedTokens(newBlock)]);
     setSelectedId(nextId);
     setActiveTab('edit');
   };
@@ -346,7 +375,7 @@ const App: React.FC = () => {
               <Player
                 ref={setPlayer}
                 component={LyricComposition}
-                inputProps={{lyrics, globalSettings, audioUrl: audioFile?.url}}
+                inputProps={{lyrics, globalSettings, audioUrl: audioFile?.url, beatMarkers}}
                 durationInFrames={durationInFrames}
                 fps={fps}
                 compositionWidth={1920}
@@ -420,6 +449,10 @@ const App: React.FC = () => {
           trackCount={trackCount}
           onDeleteTrack={handleDeleteTrack}
           audioUrl={audioFile?.url}
+          beatMarkers={beatMarkers}
+          onBeatMarkersChange={setBeatMarkers}
+          beatSnapEnabled={beatSnapEnabled}
+          setBeatSnapEnabled={setBeatSnapEnabled}
         />
 
         <div style={{display: 'flex', justifyContent: 'flex-start', gap: 10, padding: '0 4px'}}>
@@ -473,14 +506,18 @@ const App: React.FC = () => {
           lyrics={lyrics}
           setLyrics={setLyricsWithHistory}
           selectedId={selectedId}
+          setSelectedId={setSelectedId}
           globalSettings={globalSettings}
           setGlobalSettings={setGlobalSettingsWithHistory}
           audioFile={audioFile}
           setAudioFile={setAudioFile}
+          beatMarkers={beatMarkers}
+          setBeatMarkers={setBeatMarkers}
           durationInFrames={durationInFrames}
           currentFrame={currentFrame}
           trackCount={trackCount}
           setTrackCount={setTrackCount}
+          applyProjectStateUpdate={applyProjectStateUpdate}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onAddLyric={handleAddLyric}

@@ -1,0 +1,58 @@
+AI_PROJECT_JSON_SPEC.md を使って lyricvidEditor 用JSONを依頼するためのプロンプト例
+
+---
+
+1. LRCファイルだけで依頼する場合
+
+添付したLRCファイルをもとに、AI_PROJECT_JSON_SPEC.md に従って lyricvidEditor 用の lyric-project.json を作成してください。
+歌詞の雰囲気に合わせて、フォント、色、登場エフェクト、歌唱中エフェクト、退場エフェクト、tokenMode、track、必要なkeyframesを設定してください。
+最終的にエディタの「データ読込」から読み込めるJSONだけを出力してください。
+
+---
+
+2. LRCファイルと音源を一緒に渡す場合
+
+添付したLRCファイルと音源をもとに、AI_PROJECT_JSON_SPEC.md に従って lyricvidEditor 用の lyric-project.json を作成してください。
+歌詞の意味、曲調、テンポ感、サビ/静かな部分/強調語を判断し、track、font、色、登場エフェクト、歌唱中エフェクト、退場エフェクト、tokenMode、keyframes、beatMarkersを設定してください。
+エディタの「データ読込」から読み込めるJSONのみを出力してください。
+
+---
+
+3. 音源を渡せない場合に曲調メモを添える例
+
+添付したLRCファイルをもとに、AI_PROJECT_JSON_SPEC.md に従って lyricvidEditor 用の lyric-project.json を作成してください。
+
+曲調:
+速めのロック。Aメロは暗め、サビは強く、最後は余韻を残す雰囲気です。
+
+歌詞の意味、曲調メモ、サビ/静かな部分/強調語を判断し、track、font、色、登場エフェクト、歌唱中エフェクト、退場エフェクト、tokenMode、keyframesを設定してください。
+beatMarkersが不明な場合は空配列で構いません。
+エディタの「データ読込」から読み込めるJSONのみを出力してください。
+
+---
+
+4. 追加で品質を上げたい場合の依頼文
+
+以下の方針も反映してください。
+
+- 読みやすさを優先してください。
+- 強調語だけ派手にしてください。
+- サビはBeat系またはGlow系を使ってください。
+- Aメロは控えめにしてください。
+- 3Dエフェクトは使いすぎないでください。
+- tokenModeは日本語歌詞では基本mora、英語やスペース区切りではwordにしてください。
+- keyframesは必要な箇所だけにしてください。
+
+---
+
+5. 出力形式の指定
+
+説明文は不要です。
+以下の形式で、JSONのみを出力してください。
+
+{
+  "lyrics": [],
+  "globalSettings": {},
+  "trackCount": 4,
+  "beatMarkers": []
+}

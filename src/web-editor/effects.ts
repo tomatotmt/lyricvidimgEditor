@@ -2,12 +2,21 @@ import type {CSSProperties} from 'react';
 
 export type EffectKind = 'effect' | 'textEffect';
 export type EffectCategory = 'All' | 'Basic' | 'Motion' | 'Light / Color' | 'Glitch / AI' | 'Character' | '3D' | 'Cinematic';
+export type EffectPurpose = 'All' | 'Karaoke' | 'Beat' | 'Chorus' | 'Emotional' | 'Impact' | 'Glitch' | '3D' | 'Subtle';
 
 export type EffectPreset = {
   name: string;
   kind: EffectKind;
   category?: EffectCategory;
   character?: boolean;
+};
+
+export type EffectMetadata = {
+  name: string;
+  displayName: string;
+  description: string;
+  purpose: EffectPurpose;
+  tags: readonly string[];
 };
 
 export const EFFECT_OPTIONS = [
@@ -63,6 +72,20 @@ export const TEXT_EFFECT_OPTIONS = [
   'Shatter Fade',
   'Rotate & Scale',
   'Word by Word Fade',
+  'Karaoke Sweep',
+  'Word Highlight',
+  'Beat Pop',
+  'Chorus Burst',
+  'Whisper Fade',
+  'Shout Impact',
+  'Beat Glow',
+  'Beat Shake',
+  'Beat Strobe',
+  'Bass Drop',
+  'Vocal Chase',
+  'Syllable Sweep',
+  'Phrase Pulse',
+  'Lyric Scan',
   'Flash & Fade',
   'Ghostly Rise',
   'TV Static Reveal',
@@ -162,6 +185,18 @@ export const TEXT_EFFECT_CATEGORIES: readonly EffectCategory[] = [
   '3D',
 ] as const;
 
+export const EFFECT_PURPOSES: readonly EffectPurpose[] = [
+  'All',
+  'Karaoke',
+  'Beat',
+  'Chorus',
+  'Emotional',
+  'Impact',
+  'Glitch',
+  '3D',
+  'Subtle',
+] as const;
+
 const DISPLAY_EFFECT_CATEGORIES: Record<(typeof EFFECT_OPTIONS)[number], EffectCategory> = {
   None: 'Basic',
   Pop: 'Basic',
@@ -206,6 +241,13 @@ const TEXT_MOTION_EFFECTS = new Set<string>([
   'Slash Cut-In',
   'Impact Shake & Blur',
   'Spinning Drop',
+  'Beat Pop',
+  'Shout Impact',
+  'Beat Glow',
+  'Beat Shake',
+  'Beat Strobe',
+  'Bass Drop',
+  'Phrase Pulse',
 ]);
 const TEXT_GLITCH_EFFECTS = new Set<string>([
   'Glitch Entry',
@@ -222,6 +264,11 @@ const TEXT_CHARACTER_EFFECTS = new Set<string>([
   'Scatter to Gather',
   'Tracking Expander',
   'Word by Word Fade',
+  'Karaoke Sweep',
+  'Word Highlight',
+  'Vocal Chase',
+  'Syllable Sweep',
+  'Lyric Scan',
   'Horizontal Slice Merge',
   'Vertical Slice Merge',
 ]);
@@ -229,6 +276,8 @@ const TEXT_CINEMATIC_EFFECTS = new Set<string>([
   'Mask Wipe',
   'Blur Reveal',
   'Shatter Fade',
+  'Chorus Burst',
+  'Whisper Fade',
   'Flash & Fade',
   'Ghostly Rise',
   'Liquid Melt',
@@ -269,6 +318,232 @@ export const getTextEffectCategory = (name: string): EffectCategory => {
   return 'Cinematic';
 };
 
+const EFFECT_METADATA_OVERRIDES: Record<string, Partial<Omit<EffectMetadata, 'name'>>> = {
+  None: {
+    displayName: 'なし',
+    description: '動きを付けず、文字をそのまま表示します。',
+    purpose: 'Subtle',
+    tags: ['basic', 'off'],
+  },
+  Pop: {
+    displayName: 'ポップ',
+    description: '短い強調に向いたスケールの跳ねです。',
+    purpose: 'Beat',
+    tags: ['beat', 'scale'],
+  },
+  Shake: {
+    displayName: 'シェイク',
+    description: '衝撃や叫びに合わせて文字を揺らします。',
+    purpose: 'Impact',
+    tags: ['impact', 'shake'],
+  },
+  Glitch: {
+    displayName: 'グリッチ',
+    description: 'デジタルノイズ風のズレを加えます。',
+    purpose: 'Glitch',
+    tags: ['noise', 'digital'],
+  },
+  Neon: {
+    displayName: 'ネオン',
+    description: '発光する字幕やサビ前の強調に向いています。',
+    purpose: 'Chorus',
+    tags: ['glow', 'light'],
+  },
+  Glow: {
+    displayName: 'グロー',
+    description: '文字の存在感を柔らかく上げます。',
+    purpose: 'Emotional',
+    tags: ['light', 'soft'],
+  },
+  'Slow Zoom': {
+    displayName: 'スローズーム',
+    description: '静かな歌詞にゆっくり寄る動きです。',
+    purpose: 'Emotional',
+    tags: ['slow', 'zoom'],
+  },
+  'Cinematic Pan': {
+    displayName: 'シネマティックパン',
+    description: '映画的に横へ流れる落ち着いた動きです。',
+    purpose: 'Emotional',
+    tags: ['cinematic', 'pan'],
+  },
+  'Text Scramble Loop': {
+    displayName: 'スクランブルループ',
+    description: '文字を断続的にノイズ化します。',
+    purpose: 'Glitch',
+    tags: ['scramble', 'loop'],
+  },
+  '3D Text Tunnel': {
+    displayName: '3Dテキストトンネル',
+    description: '奥行き方向のうねりを加えます。',
+    purpose: '3D',
+    tags: ['depth', 'tunnel'],
+  },
+  'Fade In': {
+    displayName: 'フェードイン',
+    description: '字幕を自然に出す基本の表示です。',
+    purpose: 'Subtle',
+    tags: ['basic', 'fade'],
+  },
+  Typewriter: {
+    displayName: 'タイプライター',
+    description: '文字を順番に表示します。',
+    purpose: 'Karaoke',
+    tags: ['character', 'typing'],
+  },
+  'Pop In': {
+    displayName: 'ポップイン',
+    description: '短い歌詞や語尾の強調に使いやすい動きです。',
+    purpose: 'Beat',
+    tags: ['pop', 'entry'],
+  },
+  'Glitch Entry': {
+    displayName: 'グリッチ登場',
+    description: '登場時にデジタルなズレを付けます。',
+    purpose: 'Glitch',
+    tags: ['entry', 'noise'],
+  },
+  'Karaoke Sweep': {
+    displayName: 'カラオケスイープ',
+    description: '歌唱の進行に合わせて文字を左から明るくします。',
+    purpose: 'Karaoke',
+    tags: ['karaoke', 'highlight', 'sing-along'],
+  },
+  'Word Highlight': {
+    displayName: 'ワードハイライト',
+    description: '同期単位で分割した語句やモーラを順番に持ち上げ、歌唱位置を強調します。',
+    purpose: 'Karaoke',
+    tags: ['word', 'focus', 'stagger'],
+  },
+  'Beat Pop': {
+    displayName: 'ビートポップ',
+    description: '検出・手動・BPMグリッドの拍に反応して、短い跳ねでフレーズを強調します。',
+    purpose: 'Beat',
+    tags: ['beat', 'pop', 'short'],
+  },
+  'Chorus Burst': {
+    displayName: 'サビバースト',
+    description: 'サビ頭で大きく光らせて画面を押し出します。',
+    purpose: 'Chorus',
+    tags: ['chorus', 'burst', 'glow'],
+  },
+  'Whisper Fade': {
+    displayName: 'ウィスパーフェード',
+    description: '静かな歌詞を息のように薄く浮かべます。',
+    purpose: 'Emotional',
+    tags: ['soft', 'fade', 'ballad'],
+  },
+  'Shout Impact': {
+    displayName: 'シャウトインパクト',
+    description: '叫びや決め台詞に向いた強い衝撃表現です。',
+    purpose: 'Impact',
+    tags: ['impact', 'shout', 'shake'],
+  },
+  'Beat Glow': {
+    displayName: 'ビートグロー',
+    description: '検出・手動・BPMグリッドの拍で文字の発光を強めます。',
+    purpose: 'Beat',
+    tags: ['beat', 'audio', 'glow'],
+  },
+  'Beat Shake': {
+    displayName: 'ビートシェイク',
+    description: '検出・手動・BPMグリッドの拍の瞬間だけ文字を鋭く揺らします。',
+    purpose: 'Beat',
+    tags: ['beat', 'audio', 'shake'],
+  },
+  'Beat Strobe': {
+    displayName: 'ビートストロボ',
+    description: '検出・手動・BPMグリッドの拍に合わせて明滅する字幕演出です。',
+    purpose: 'Beat',
+    tags: ['beat', 'audio', 'strobe'],
+  },
+  'Bass Drop': {
+    displayName: 'ベースドロップ',
+    description: '強い拍マーカーで文字を沈めて押し返す低音向け演出です。',
+    purpose: 'Impact',
+    tags: ['beat', 'drop', 'bass'],
+  },
+  'Vocal Chase': {
+    displayName: 'ボーカルチェイス',
+    description: 'token同期の進行を追いかけるように、語句やモーラ単位で発光します。',
+    purpose: 'Karaoke',
+    tags: ['vocal', 'karaoke', 'character'],
+  },
+  'Syllable Sweep': {
+    displayName: 'シラブルスイープ',
+    description: 'Mora/Character同期に合わせ、音節感のある順送りで歌詞をなぞります。',
+    purpose: 'Karaoke',
+    tags: ['syllable', 'karaoke', 'sweep'],
+  },
+  'Phrase Pulse': {
+    displayName: 'フレーズパルス',
+    description: 'フレーズ全体を拍と進行に合わせて呼吸させます。',
+    purpose: 'Chorus',
+    tags: ['phrase', 'beat', 'pulse'],
+  },
+  'Lyric Scan': {
+    displayName: 'リリックスキャン',
+    description: '走査線が歌詞を読み取るように流れます。',
+    purpose: 'Karaoke',
+    tags: ['scan', 'karaoke', 'line'],
+  },
+  'Random Decode': {
+    displayName: 'ランダムデコード',
+    description: '暗号が解けるように文字を出します。',
+    purpose: 'Glitch',
+    tags: ['decode', 'digital'],
+  },
+  'Matrix Rain': {
+    displayName: 'マトリックスレイン',
+    description: '落下するデータ文字のように表示します。',
+    purpose: 'Glitch',
+    tags: ['matrix', 'digital'],
+  },
+  'Blur Reveal': {
+    displayName: 'ブラーリビール',
+    description: 'ぼかしから文字を浮かび上がらせます。',
+    purpose: 'Emotional',
+    tags: ['blur', 'reveal'],
+  },
+  'Flash & Fade': {
+    displayName: 'フラッシュフェード',
+    description: '一瞬光ってから自然に馴染ませます。',
+    purpose: 'Chorus',
+    tags: ['flash', 'light'],
+  },
+};
+
+const defaultPurposeForCategory = (category: EffectCategory): EffectPurpose => {
+  switch (category) {
+    case '3D':
+      return '3D';
+    case 'Glitch / AI':
+      return 'Glitch';
+    case 'Light / Color':
+      return 'Chorus';
+    case 'Cinematic':
+      return 'Emotional';
+    case 'Motion':
+      return 'Beat';
+    case 'Character':
+      return 'Karaoke';
+    default:
+      return 'Subtle';
+  }
+};
+
+export const getEffectMetadata = (name: string, kind: EffectKind): EffectMetadata => {
+  const category = kind === 'effect' ? getEffectCategory(name) : getTextEffectCategory(name);
+  const override = EFFECT_METADATA_OVERRIDES[name] ?? {};
+  return {
+    name,
+    displayName: override.displayName ?? name,
+    description: override.description ?? `${category}カテゴリの文字動画向けエフェクトです。`,
+    purpose: override.purpose ?? defaultPurposeForCategory(category),
+    tags: override.tags ?? [category.toLowerCase()],
+  };
+};
+
 export const EFFECT_PRESETS: EffectPreset[] = EFFECT_OPTIONS.map((name) => ({
   name,
   kind: 'effect',
@@ -287,6 +562,11 @@ export const TEXT_EFFECT_PRESETS: EffectPreset[] = TEXT_EFFECT_OPTIONS.map((name
       'Staggered Bounce',
       'Scatter to Gather',
       'Random Decode',
+      'Karaoke Sweep',
+      'Word Highlight',
+      'Vocal Chase',
+      'Syllable Sweep',
+      'Lyric Scan',
       'Shatter Fade',
       'Matrix Rain',
       'Liquid Melt',
@@ -306,6 +586,7 @@ export type EffectAnimationContext = {
   intensity: number;
   index?: number;
   total?: number;
+  beatIntensity?: number;
 };
 
 export type EffectAnimationResult = {
@@ -375,6 +656,7 @@ export const getTextEffectAnimation = (
   const e = easeOut(p);
   const s = seed(ctx.index);
   const phase = s * Math.PI * 2;
+  const beat = ctx.beatIntensity ?? 0;
 
   switch (effect) {
     case 'None':
@@ -382,6 +664,93 @@ export const getTextEffectAnimation = (
     case 'Fade In':
     case 'Word by Word Fade':
       return {opacity: p * (1 - out), y: (1 - p) * 14};
+    case 'Karaoke Sweep': {
+      const total = Math.max(1, ctx.total ?? text.length);
+      const reveal = p * (total + 1);
+      const distance = reveal - (ctx.index ?? 0);
+      const active = clamp(distance, 0, 1);
+      return {
+        opacity: 0.45 + active * 0.55,
+        color: active > 0.2 ? '#fef08a' : '#d1d5db',
+        y: (1 - active) * 8,
+        textShadow: active > 0.2 ? '0 0 18px rgba(250,204,21,.75)' : undefined,
+      };
+    }
+    case 'Word Highlight': {
+      const total = Math.max(1, ctx.total ?? text.length);
+      const cursor = Math.floor(p * total);
+      const distance = Math.abs((ctx.index ?? 0) - cursor);
+      const focus = clamp(1 - distance / 2);
+      return {
+        opacity: 0.72 + focus * 0.28,
+        scale: 1 + focus * 0.18,
+        y: -focus * 12,
+        color: focus > 0.35 ? '#ffffff' : undefined,
+        textShadow: focus > 0.35 ? '0 0 16px rgba(255,255,255,.55)' : undefined,
+      };
+    }
+    case 'Beat Pop': {
+      const punch = Math.pow(beat, 0.72);
+      return {opacity: p, scale: 1 + punch * 0.24, y: -punch * 14, textShadow: punch > 0.45 ? '0 0 22px rgba(96,165,250,.85)' : undefined};
+    }
+    case 'Chorus Burst': {
+      const burst = 1 - clamp((ctx.frame - ctx.startFrame) / Math.max(10, ctx.speed * 3));
+      return {
+        opacity: p,
+        scale: 1 + burst * 0.85,
+        blur: burst * 5,
+        textShadow: `0 0 ${18 + burst * 42}px rgba(255,255,255,.9), 0 0 ${30 + burst * 60}px rgba(59,130,246,.55)`,
+      };
+    }
+    case 'Whisper Fade':
+      return {opacity: p * (1 - out) * 0.86, y: (1 - p) * 24 - out * 18, blur: (1 - p + out) * 7, letterSpacing: 2 + p * 3};
+    case 'Shout Impact': {
+      const hit = 1 - clamp((ctx.frame - ctx.startFrame) / Math.max(8, ctx.speed * 2));
+      return {
+        opacity: p,
+        scale: 1 + hit * 0.75,
+        x: wave(ctx.frame, 2.8) * hit * 18,
+        y: wave(ctx.frame, 3.6, 1) * hit * 12,
+        blur: hit * 3,
+        textShadow: '4px 0 #ef4444, -4px 0 #06b6d4, 0 0 24px rgba(255,255,255,.6)',
+      };
+    }
+    case 'Beat Glow':
+      return {opacity: p, scale: 1 + beat * 0.18, textShadow: beat > 0.03 ? `0 0 ${12 + beat * 44}px rgba(250,204,21,.9)` : undefined};
+    case 'Beat Shake':
+      return {opacity: p, x: wave(ctx.frame, 3.4) * beat * 24, y: wave(ctx.frame, 4.1, 1) * beat * 16, rotate: wave(ctx.frame, 2.2) * beat * 3};
+    case 'Beat Strobe':
+      return {opacity: beat > 0.18 ? 1 : Math.max(0.35, p * 0.75), filter: `brightness(${1 + beat * 3.6}) contrast(${1 + beat * 1.4})`};
+    case 'Bass Drop':
+      return {opacity: p, y: beat * 56, scale: 1 + beat * 0.42, blur: beat * 3.2, transformExtra: `scaleY(${1 - beat * 0.22})`};
+    case 'Vocal Chase': {
+      const total = Math.max(1, ctx.total ?? text.length);
+      const cursor = p * total;
+      const distance = Math.abs((ctx.index ?? 0) - cursor);
+      const focus = clamp(1 - distance / 2.2);
+      const boost = Math.max(focus, beat * focus);
+      return {opacity: 0.55 + boost * 0.45, scale: 1 + boost * 0.22, y: -boost * 10, textShadow: boost > 0.25 ? '0 0 20px rgba(34,211,238,.8)' : undefined};
+    }
+    case 'Syllable Sweep': {
+      const total = Math.max(1, ctx.total ?? text.length);
+      const sweep = clamp(p * (total + 2) - (ctx.index ?? 0));
+      return {
+        opacity: 0.3 + sweep * 0.7,
+        x: (1 - sweep) * -18,
+        color: sweep > 0.45 ? '#fef3c7' : '#cbd5e1',
+        textShadow: sweep > 0.45 ? '0 0 18px rgba(251,191,36,.75)' : undefined,
+      };
+    }
+    case 'Phrase Pulse': {
+      const phrase = Math.sin(p * Math.PI);
+      return {opacity: p * (1 - out), scale: 1 + phrase * 0.08 + beat * 0.16, letterSpacing: phrase * 3, textShadow: beat > 0.1 ? '0 0 26px rgba(255,255,255,.75)' : undefined};
+    }
+    case 'Lyric Scan': {
+      const scan = clamp(p * 1.25);
+      const total = Math.max(1, ctx.total ?? text.length);
+      const active = clamp(scan * total - (ctx.index ?? 0));
+      return {opacity: 0.38 + active * 0.62, y: (1 - active) * 7, color: active > 0.5 ? '#bfdbfe' : undefined, textShadow: active > 0.5 ? '0 0 14px rgba(59,130,246,.75)' : undefined};
+    }
     case 'Typewriter':
     case 'Char Fade In/Out':
       return {opacity: p * (1 - out)};

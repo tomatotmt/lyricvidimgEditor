@@ -4,6 +4,7 @@ import {useCurrentFrame, useVideoConfig} from 'remotion';
 import * as THREE from 'three';
 import {THREE_TEXT_EFFECT_OPTIONS} from '../effects';
 import {GlobalSettings, LyricBlock} from '../types';
+import {getLyricTokens} from '../lyricTokens';
 
 type ThreeTextEffectName = (typeof THREE_TEXT_EFFECT_OPTIONS)[number];
 
@@ -21,6 +22,13 @@ type CameraState = {
   position: Vec3;
   rotation: Vec3;
   fov: number;
+};
+
+type RenderUnit = {
+  id: string;
+  text: string;
+  startFrame?: number;
+  endFrame?: number;
 };
 
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
@@ -226,7 +234,10 @@ const flythroughScale = (progressValue: number) =>
 const getProgress = (frame: number, lyric: LyricBlock) =>
   clamp((frame - lyric.startFrame) / Math.max(1, lyric.endFrame - lyric.startFrame));
 
-const getLetterProgress = (frame: number, lyric: LyricBlock, index: number) => {
+const getLetterProgress = (frame: number, lyric: LyricBlock, index: number, unitStartFrame?: number, unitEndFrame?: number) => {
+  if (unitStartFrame !== undefined && unitEndFrame !== undefined) {
+    return clamp((frame - unitStartFrame) / Math.max(1, unitEndFrame - unitStartFrame));
+  }
   const speedFrames = Math.max(4, 16 - lyric.effectSpeed);
   return clamp((frame - lyric.startFrame - index * speedFrames) / Math.max(10, lyric.effectSpeed * 5));
 };
@@ -293,12 +304,14 @@ const letterStateForPreset = (
   frame: number,
   index: number,
   total: number,
-  textColor: string
+  textColor: string,
+  unitStartFrame?: number,
+  unitEndFrame?: number
 ): LetterState => {
   const key = `${lyric.id}:${lyric.text}:${name}`;
   const rng = seeded(key, index);
   const p = getProgress(frame, lyric);
-  const lp = getLetterProgress(frame, lyric, index);
+  const lp = getLetterProgress(frame, lyric, index, unitStartFrame, unitEndFrame);
   const e = easeOut(lp);
   const frameSettings = getFrameSettings(lyric, frame);
   const base = getBasePosition(lyric, frame);
@@ -449,9 +462,18 @@ const ThreeLyric: React.FC<{
   const effectName = lyric.textEffect as ThreeTextEffectName;
   const sourceChars = splitText(lyric.text);
   const baseChars = sourceChars.length > 0 ? sourceChars : [' '];
-  const chars = needsDenseFlythrough(effectName)
-    ? Array.from({length: Math.max(baseChars.length, 36)}, (_, index) => baseChars[index % baseChars.length])
-    : baseChars;
+  const units: RenderUnit[] = needsDenseFlythrough(effectName)
+    ? Array.from({length: Math.max(baseChars.length, 36)}, (_, index) => ({
+        id: `${lyric.id}-dense-${index}`,
+        text: baseChars[index % baseChars.length],
+      }))
+    : getLyricTokens(lyric).map((token) => ({
+        id: token.id,
+        text: token.text,
+        startFrame: token.startFrame,
+        endFrame: token.endFrame,
+      }));
+  const renderUnits = units.length > 0 ? units : [{id: `${lyric.id}-empty`, text: ' '}];
   const fontFamily = lyric.font || globalSettings.font || 'Noto Sans JP';
   const frameSettings = getFrameSettings(lyric, frame);
   const textColor = frameSettings.textColor || globalSettings.textColor || '#ffffff';
@@ -463,12 +485,12 @@ const ThreeLyric: React.FC<{
   return (
     <>
       <group>
-        {chars.map((char, index) => {
-          const state = letterStateForPreset(effectName, lyric, frame, index, chars.length, textColor);
+        {renderUnits.map((unit, index) => {
+          const state = letterStateForPreset(effectName, lyric, frame, index, renderUnits.length, textColor, unit.startFrame, unit.endFrame);
           return (
             <TextPlane
-              key={`${lyric.id}-${index}-${char}`}
-              text={char.trim() ? char : ' '}
+              key={unit.id}
+              text={unit.text.trim() ? unit.text : ' '}
               fontFamily={fontFamily}
               textColor={textColor}
               outlineColor={outlineColor}
