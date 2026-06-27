@@ -137,6 +137,29 @@ export const TEXT_EFFECT_OPTIONS = [
   'Chromatic Speed Tunnel',
 ] as const;
 
+export const IMAGE_EFFECT_OPTIONS = [
+  'None',
+  'Slow Zoom In',
+  'Slow Zoom Out',
+  'Pan Drift',
+  'Beat Zoom',
+  'Beat Shake',
+  'Glitch Hit',
+  'Flash Pulse',
+  'Bass Drop Zoom',
+  'RGB Glitch',
+  'Slice Glitch',
+  'VHS Jitter',
+  'Beat Blur Flash',
+  'Spin Zoom',
+  'Parallax Drift',
+  'Pixel Punch',
+  'Bass Shake Zoom',
+  'Directional Punch',
+  'Dark Pulse',
+  'Saturation Pulse',
+] as const;
+
 export const THREE_TEXT_EFFECT_OPTIONS = [
   'Orbit Giant Letters',
   'FPS Letter Rush',
@@ -902,6 +925,181 @@ export const getDisplayEffectAnimation = (
       return {textShadow: `${10 + wave(ctx.frame, 0.05) * 10}px 8px rgba(0,0,0,.45)`};
     case '3D Text Tunnel':
       return {letterSpacing: 4 + wave(ctx.frame, 0.015) * 2, transformExtra: `perspective(900px) translateZ(${wave(ctx.frame, 0.018) * 140}px)`};
+    default:
+      return {};
+  }
+};
+
+export const getImageEffectAnimation = (
+  effect: (typeof IMAGE_EFFECT_OPTIONS)[number] | string,
+  ctx: EffectAnimationContext
+): EffectAnimationResult => {
+  const p = progress(ctx);
+  const beat = ctx.beatIntensity ?? 0;
+  const intensity = ctx.intensity || 5;
+  const speed = Math.max(1, ctx.speed || 5);
+  const drift = Math.max(0.15, speed / 8);
+
+  switch (effect) {
+    case 'None':
+      return {};
+    case 'Slow Zoom In':
+      return {scale: 1 + p * intensity * 0.035};
+    case 'Slow Zoom Out':
+      return {scale: 1 + (1 - p) * intensity * 0.035};
+    case 'Pan Drift':
+      return {
+        x: wave(ctx.frame, 0.006 * drift) * intensity * 10,
+        y: wave(ctx.frame, 0.004 * drift, 1.8) * intensity * 7,
+        scale: 1 + Math.sin(p * Math.PI) * 0.04,
+      };
+    case 'Beat Zoom': {
+      const punch = Math.pow(beat, 0.72);
+      return {scale: 1 + punch * intensity * 0.045};
+    }
+    case 'Beat Shake':
+      return {
+        x: wave(ctx.frame, 2.9) * beat * intensity * 2.4,
+        y: wave(ctx.frame, 3.7, 1) * beat * intensity * 1.8,
+        rotate: wave(ctx.frame, 2.1) * beat * intensity * 0.35,
+      };
+    case 'Glitch Hit': {
+      const hit = beat > 0.1 ? beat : ctx.frame % Math.max(6, Math.round(34 - speed * 2)) < 2 ? 0.35 : 0;
+      return {
+        x: ((ctx.frame % 2) ? 1 : -1) * hit * intensity * 3.2,
+        skew: ((ctx.frame % 3) - 1) * hit * intensity * 0.8,
+        filter: hit > 0 ? `contrast(${1 + hit * 0.9}) saturate(${1 + hit * 0.7}) hue-rotate(${hit * 12}deg)` : undefined,
+        opacity: 1 - hit * 0.08,
+      };
+    }
+    case 'Flash Pulse':
+      return {filter: `brightness(${1 + beat * intensity * 0.18}) contrast(${1 + beat * 0.35})`};
+    case 'Bass Drop Zoom': {
+      const punch = Math.pow(beat, 0.58);
+      const recoil = Math.sin(Math.min(1, punch) * Math.PI) * 0.04;
+      return {
+        scale: 1 + punch * intensity * 0.075 - recoil,
+        y: punch * intensity * 4.6,
+        blur: punch * 1.2,
+        filter: `brightness(${1 + punch * 0.34}) contrast(${1 + punch * 0.42}) saturate(${1 + punch * 0.22})`,
+      };
+    }
+    case 'RGB Glitch': {
+      const periodic = ctx.frame % Math.max(4, Math.round(26 - speed * 1.7)) < 3 ? 0.42 : 0;
+      const hit = Math.max(beat, periodic);
+      const offset = hit * intensity * 1.7;
+      return {
+        x: ((ctx.frame % 2) ? 1 : -1) * offset,
+        skew: ((ctx.frame % 5) - 2) * hit * 0.8,
+        opacity: 1 - hit * 0.06,
+        filter: hit > 0.02
+          ? `contrast(${1 + hit * 0.65}) saturate(${1 + hit * 0.55}) drop-shadow(${offset}px 0 rgba(239,68,68,.72)) drop-shadow(${-offset}px 0 rgba(34,211,238,.72))`
+          : undefined,
+      };
+    }
+    case 'Slice Glitch': {
+      const periodic = ctx.frame % Math.max(5, Math.round(22 - speed * 1.4)) < 2 ? 0.5 : 0;
+      const hit = Math.max(beat, periodic);
+      const sliceTop = 8 + ((ctx.frame * 17) % 58);
+      const sliceBottom = Math.min(92, sliceTop + 18 + intensity * 1.4);
+      return {
+        x: ((ctx.frame % 2) ? -1 : 1) * hit * intensity * 4.6,
+        y: ((ctx.frame % 3) - 1) * hit * intensity * 1.2,
+        skew: ((ctx.frame % 4) - 1.5) * hit * 1.8,
+        clipPath: hit > 0.08 ? `polygon(0 0, 100% 0, 100% ${sliceTop}%, 0 ${sliceTop}%, 0 ${sliceBottom}%, 100% ${sliceBottom}%, 100% 100%, 0 100%)` : undefined,
+        filter: hit > 0.08 ? `contrast(${1 + hit * 1.2}) saturate(${1 + hit * 0.6})` : undefined,
+      };
+    }
+    case 'VHS Jitter': {
+      const jitter = Math.max(beat * 0.65, ctx.frame % Math.max(6, Math.round(18 - speed)) < 2 ? 0.28 : 0);
+      return {
+        x: wave(ctx.frame, 4.8) * jitter * intensity * 1.8,
+        y: ((ctx.frame % 4) - 1.5) * jitter * 1.2,
+        rotate: wave(ctx.frame, 1.3) * jitter * 0.2,
+        blur: jitter * 0.7,
+        filter: `sepia(${0.1 + jitter * 0.18}) saturate(${0.78 + jitter * 0.4}) contrast(${1.05 + jitter * 0.38}) brightness(${0.96 + jitter * 0.16})`,
+      };
+    }
+    case 'Beat Blur Flash': {
+      const punch = Math.pow(beat, 0.7);
+      return {
+        scale: 1 + punch * intensity * 0.025,
+        blur: punch * (1.4 + intensity * 0.18),
+        opacity: 1 - punch * 0.1,
+        filter: `brightness(${1 + punch * intensity * 0.28}) contrast(${1 + punch * 0.7}) saturate(${1 + punch * 0.22})`,
+      };
+    }
+    case 'Spin Zoom': {
+      const curve = easeOut(p);
+      const beatBoost = Math.pow(beat, 0.72);
+      return {
+        scale: 1 + Math.sin(p * Math.PI) * intensity * 0.035 + beatBoost * 0.12,
+        rotate: (curve - 0.5) * intensity * 7 + beatBoost * intensity * 0.55,
+        blur: Math.max(0, Math.sin(p * Math.PI) * 0.5),
+      };
+    }
+    case 'Parallax Drift': {
+      const depth = 1 + intensity * 0.006;
+      return {
+        x: wave(ctx.frame, 0.0038 * drift) * intensity * 14 + p * intensity * 5,
+        y: wave(ctx.frame, 0.0048 * drift, 1.2) * intensity * 9,
+        scale: depth + Math.sin(p * Math.PI) * 0.035,
+        rotate: wave(ctx.frame, 0.006 * drift) * intensity * 0.08,
+      };
+    }
+    case 'Pixel Punch': {
+      const punch = Math.max(Math.pow(beat, 0.62), ctx.frame % Math.max(8, Math.round(30 - speed * 1.8)) < 2 ? 0.32 : 0);
+      const stepped = punch > 0.05 ? Math.round((1 + punch * intensity * 0.035) * 18) / 18 : 1;
+      return {
+        scale: stepped,
+        x: Math.round(wave(ctx.frame, 3.2) * punch * intensity * 1.6),
+        y: Math.round(wave(ctx.frame, 2.7, 1) * punch * intensity * 1.1),
+        filter: punch > 0.05 ? `contrast(${1 + punch * 1.25}) saturate(${1 + punch * 0.7}) brightness(${1 + punch * 0.18})` : undefined,
+        transformExtra: punch > 0.05 ? `scaleX(${1 + (((ctx.frame % 2) ? 1 : -1) * punch * 0.025)})` : undefined,
+      };
+    }
+    case 'Bass Shake Zoom': {
+      const punch = Math.pow(beat, 0.52);
+      const direction = ctx.frame % 4;
+      const side = direction === 0 ? -1 : direction === 1 ? 1 : 0;
+      const vertical = direction === 2 ? -1 : direction === 3 ? 1 : 0;
+      return {
+        x: (side * intensity * 9 + wave(ctx.frame, 5.4) * intensity * 2.2) * punch,
+        y: (vertical * intensity * 6 + wave(ctx.frame, 4.7, 1) * intensity * 2.4) * punch,
+        scale: 1 + punch * intensity * 0.06,
+        rotate: wave(ctx.frame, 3.1) * punch * intensity * 0.45,
+        blur: punch * 0.55,
+        filter: `brightness(${1 + punch * 0.24}) contrast(${1 + punch * 0.32})`,
+      };
+    }
+    case 'Directional Punch': {
+      const periodic = ctx.frame % Math.max(8, Math.round(24 - speed * 1.4)) < 3 ? 0.34 : 0;
+      const punch = Math.max(Math.pow(beat, 0.65), periodic);
+      const segment = Math.floor(ctx.frame / Math.max(3, Math.round(12 - speed * 0.7))) % 4;
+      const xDirection = segment === 0 ? 1 : segment === 2 ? -1 : 0;
+      const yDirection = segment === 1 ? -1 : segment === 3 ? 1 : 0;
+      return {
+        x: xDirection * punch * intensity * 10,
+        y: yDirection * punch * intensity * 7,
+        scale: 1 + punch * intensity * 0.022,
+        skew: xDirection * punch * intensity * 0.42,
+        blur: punch * 0.35,
+      };
+    }
+    case 'Dark Pulse': {
+      const pulse = Math.max(Math.pow(beat, 0.7), Math.sin(p * Math.PI) * 0.16);
+      return {
+        opacity: 1 - pulse * Math.min(0.55, 0.18 + intensity * 0.035),
+        filter: `brightness(${1 - pulse * Math.min(0.72, 0.18 + intensity * 0.055)}) contrast(${1 + pulse * 0.36}) saturate(${1 - pulse * 0.24})`,
+      };
+    }
+    case 'Saturation Pulse': {
+      const pulse = Math.max(Math.pow(beat, 0.68), Math.sin(p * Math.PI) * 0.12);
+      return {
+        scale: 1 + pulse * intensity * 0.012,
+        filter: `saturate(${1 + pulse * intensity * 0.24}) contrast(${1 + pulse * 0.28}) brightness(${1 + pulse * 0.12})`,
+      };
+    }
     default:
       return {};
   }

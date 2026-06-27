@@ -1,10 +1,12 @@
 import React from 'react';
-import {Audio, useCurrentFrame} from 'remotion';
-import {BeatMarker, GlobalSettings, LyricBlock} from '../types';
+import {Audio, Img, useCurrentFrame} from 'remotion';
+import {BeatMarker, GlobalSettings, ImageBlock, ImageKeyframeProperty, LyricBlock} from '../types';
 import {
+  EffectAnimationResult,
   TEXT_EFFECT_PRESETS,
   buildAnimatedStyle,
   getDisplayEffectAnimation,
+  getImageEffectAnimation,
   getTextEffectAnimation,
   mergeAnimation,
   scrambleText,
@@ -17,6 +19,7 @@ interface LyricCompositionProps {
   globalSettings: GlobalSettings;
   audioUrl?: string;
   beatMarkers?: BeatMarker[];
+  imageBlocks?: ImageBlock[];
 }
 
 const isCharacterTextEffect = (effect: string) =>
@@ -55,6 +58,7 @@ const textBackgroundStyle = (color: string | undefined): React.CSSProperties =>
     : {};
 
 const interpolate = (from: number, to: number, progress: number) => from + (to - from) * progress;
+const IMAGE_NUMERIC_PROPERTIES = new Set<ImageKeyframeProperty>(['x', 'y', 'scale', 'rotation', 'opacity', 'effectIntensity', 'effectSpeed']);
 
 const getFrameSettings = (lyric: LyricBlock, frame: number) => {
   const base = {
@@ -125,6 +129,31 @@ const renderText = (text: string, textEffect: string, displayEffect: string, fra
     return scrambleText(text, frame);
   }
   return text;
+};
+
+const getImageFrameSettings = (image: ImageBlock, frame: number) => {
+  const settings = {
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    rotation: image.rotation,
+    opacity: image.opacity,
+    effectIntensity: image.effectIntensity,
+    effectSpeed: image.effectSpeed,
+  };
+  const keyframes = [...(image.keyframes ?? [])].sort((a, b) => a.frame - b.frame);
+  for (const property of new Set(keyframes.map((keyframe) => keyframe.property))) {
+    if (!IMAGE_NUMERIC_PROPERTIES.has(property)) continue;
+    const frames = keyframes.filter((keyframe) => keyframe.property === property).sort((a, b) => a.frame - b.frame);
+    const first = frames[0];
+    const last = frames[frames.length - 1];
+    const nextIndex = frames.findIndex((keyframe) => keyframe.frame >= frame);
+    const prev = frame <= first.frame ? first : frame >= last.frame ? last : frames[Math.max(0, nextIndex - 1)];
+    const next = frame <= first.frame ? first : frame >= last.frame ? last : frames[nextIndex];
+    const p = next.frame === prev.frame ? 0 : (frame - prev.frame) / Math.max(1, next.frame - prev.frame);
+    settings[property] = interpolate(Number(prev.value ?? settings[property]), Number(next.value ?? settings[property]), p);
+  }
+  return settings;
 };
 
 const isEnabledEffect = (effect: string | undefined) => Boolean(effect && effect !== 'None');
@@ -214,9 +243,43 @@ const getBeatIntensity = (frame: number, beatMarkers: BeatMarker[] | undefined) 
   return Math.min(1, strongest);
 };
 
-export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings, audioUrl, beatMarkers}) => {
+const getImageAnimation = (
+  image: ImageBlock,
+  frameSettings: ReturnType<typeof getImageFrameSettings>,
+  frame: number,
+  beatIntensity: number
+) => {
+  const commonContext = {
+    frame,
+    startFrame: image.startFrame,
+    endFrame: image.endFrame,
+    speed: frameSettings.effectSpeed,
+    intensity: frameSettings.effectIntensity,
+    beatIntensity: image.beatSync ? beatIntensity : 0,
+  };
+  const enabledSlots = (image.imageEffects ?? []).filter((slot) => slot.enabled && slot.effect !== 'None');
+  if (enabledSlots.length === 0) {
+    return getImageEffectAnimation(image.effect, commonContext);
+  }
+
+  return enabledSlots.reduce<EffectAnimationResult>(
+    (animation, slot) => mergeAnimation(
+      animation,
+      getImageEffectAnimation(slot.effect, {
+        ...commonContext,
+        intensity: slot.intensity,
+      })
+    ),
+    {}
+  );
+};
+
+export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globalSettings, audioUrl, beatMarkers, imageBlocks = []}) => {
   const frame = useCurrentFrame();
   const beatIntensity = getBeatIntensity(frame, beatMarkers);
+  const activeImages = imageBlocks
+    .filter((image) => frame >= image.startFrame && frame < image.endFrame)
+    .sort((a, b) => a.layer - b.layer || a.startFrame - b.startFrame);
   const activeLyrics = lyrics.filter(
     (lyric) => frame >= lyric.startFrame && frame < lyric.endFrame && !isThreeTextEffect(lyric.textEffect)
   );
@@ -236,7 +299,45 @@ export const LyricComposition: React.FC<LyricCompositionProps> = ({lyrics, globa
       }}
     >
       {audioUrl ? <Audio src={audioUrl} startFrom={0} /> : null}
-      <ThreeTextEffectsLayer lyrics={lyrics} globalSettings={globalSettings} />
+      {activeImages.map((image) => {
+        const frameSettings = getImageFrameSettings(image, frame);
+        const animation = getImageAnimation(image, frameSettings, frame, beatIntensity);
+        const transform = [
+          'translate(-50%, -50%)',
+          `translate(${frameSettings.x + (animation.x ?? 0)}px, ${frameSettings.y + (animation.y ?? 0)}px)`,
+          `scale(${frameSettings.scale * (animation.scale ?? 1)})`,
+          `rotate(${frameSettings.rotation + (animation.rotate ?? 0)}deg)`,
+          `skewX(${animation.skew ?? 0}deg)`,
+          animation.transformExtra,
+        ].filter(Boolean).join(' ');
+        const filters = [
+          animation.blur ? `blur(${animation.blur}px)` : undefined,
+          animation.filter,
+        ].filter(Boolean).join(' ');
+
+        return (
+          <Img
+            key={image.id}
+            src={image.src}
+            alt={image.name}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              transform,
+              transformOrigin: 'center',
+              opacity: Math.max(0, Math.min(1, frameSettings.opacity * (animation.opacity ?? 1))),
+              filter: filters || undefined,
+              clipPath: animation.clipPath,
+              pointerEvents: 'none',
+              willChange: 'transform, opacity, filter',
+            }}
+          />
+        );
+      })}
+      <ThreeTextEffectsLayer lyrics={lyrics} globalSettings={globalSettings} beatMarkers={beatMarkers} />
       {activeLyrics.map((lyric) => {
         const frameSettings = getFrameSettings(lyric, frame);
         const fontName = lyric.font || globalSettings.font || 'Outfit';

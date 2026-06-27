@@ -1,7 +1,7 @@
 import React from 'react';
 import {Composition, registerRoot} from 'remotion';
 import {LyricComposition} from '../web-editor/components/LyricComposition';
-import {BeatMarker, GlobalSettings, LyricBlock, initialLyrics} from '../web-editor/types';
+import {BeatMarker, GlobalSettings, ImageBlock, LyricBlock, initialLyrics} from '../web-editor/types';
 
 type RenderProps = {
   lyrics: LyricBlock[];
@@ -9,6 +9,7 @@ type RenderProps = {
   durationInFrames: number;
   audioUrl?: string;
   beatMarkers?: BeatMarker[];
+  imageBlocks?: ImageBlock[];
 };
 
 const defaultGlobalSettings: GlobalSettings = {
@@ -30,10 +31,11 @@ const defaultProps: RenderProps = {
   lyrics: initialLyrics,
   globalSettings: defaultGlobalSettings,
   durationInFrames: 300,
+  imageBlocks: [],
 };
 
-const RenderComposition: React.FC<RenderProps> = ({lyrics, globalSettings, audioUrl, beatMarkers}) => (
-  <LyricComposition lyrics={lyrics} globalSettings={globalSettings} audioUrl={audioUrl} beatMarkers={beatMarkers} />
+const RenderComposition: React.FC<RenderProps> = ({lyrics, globalSettings, audioUrl, beatMarkers, imageBlocks}) => (
+  <LyricComposition lyrics={lyrics} globalSettings={globalSettings} audioUrl={audioUrl} beatMarkers={beatMarkers} imageBlocks={imageBlocks} />
 );
 
 const RemotionRoot: React.FC = () => {

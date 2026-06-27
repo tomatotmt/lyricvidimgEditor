@@ -3,7 +3,7 @@ import {ThreeCanvas} from '@remotion/three';
 import {useCurrentFrame, useVideoConfig} from 'remotion';
 import * as THREE from 'three';
 import {THREE_TEXT_EFFECT_OPTIONS} from '../effects';
-import {GlobalSettings, LyricBlock} from '../types';
+import {BeatMarker, GlobalSettings, LyricBlock} from '../types';
 import {getLyricTokens} from '../lyricTokens';
 
 type ThreeTextEffectName = (typeof THREE_TEXT_EFFECT_OPTIONS)[number];
@@ -234,6 +234,17 @@ const flythroughScale = (progressValue: number) =>
 const getProgress = (frame: number, lyric: LyricBlock) =>
   clamp((frame - lyric.startFrame) / Math.max(1, lyric.endFrame - lyric.startFrame));
 
+const getBeatIntensity = (frame: number, beatMarkers: BeatMarker[] | undefined) => {
+  if (!beatMarkers || beatMarkers.length === 0) return 0;
+  let strongest = 0;
+  for (const marker of beatMarkers) {
+    const distance = Math.abs(frame - marker.frame);
+    if (distance > 12) continue;
+    strongest = Math.max(strongest, Math.max(0, 1 - distance / 12) * marker.strength);
+  }
+  return Math.min(1, strongest);
+};
+
 const getLetterProgress = (frame: number, lyric: LyricBlock, index: number, unitStartFrame?: number, unitEndFrame?: number) => {
   if (unitStartFrame !== undefined && unitEndFrame !== undefined) {
     return clamp((frame - unitStartFrame) / Math.max(1, unitEndFrame - unitStartFrame));
@@ -268,23 +279,24 @@ const getFadeOpacity = (lyric: LyricBlock, globalSettings: GlobalSettings, frame
   return opacity;
 };
 
-const cameraForPreset = (name: ThreeTextEffectName, frame: number, lyric: LyricBlock): CameraState => {
+const cameraForPreset = (name: ThreeTextEffectName, frame: number, lyric: LyricBlock, beatIntensity = 0): CameraState => {
   const p = getProgress(frame, lyric);
   const t = frame - lyric.startFrame;
   const wobble = Math.sin(t * 0.08);
+  const beatPush = Math.pow(beatIntensity, 0.75);
   const base: CameraState = {position: [0, 0, 8], rotation: [0, 0, 0], fov: 48};
 
   switch (name) {
     case 'FPS Letter Rush':
-      return {position: [Math.sin(p * Math.PI * 4) * 1.4, Math.cos(p * Math.PI * 3) * 0.8, 14 - p * 18], rotation: [wobble * 0.05, Math.sin(t * 0.05) * 0.08, 0], fov: 58};
+      return {position: [Math.sin(p * Math.PI * 4) * 1.4, Math.cos(p * Math.PI * 3) * 0.8, 14 - p * 18 - beatPush * 1.6], rotation: [wobble * 0.05, Math.sin(t * 0.05) * 0.08, beatPush * 0.03], fov: 58 + beatPush * 4};
     case 'Text Tunnel Dive':
     case 'Data Glitch Corridor':
     case 'Lyrics Roller Coaster':
-      return {position: [Math.sin(p * Math.PI * 3) * 2.4, Math.cos(p * Math.PI * 2) * 1.2, 14 - p * 24], rotation: [Math.sin(t * 0.04) * 0.18, Math.sin(t * 0.03) * 0.2, Math.sin(t * 0.02) * 0.08], fov: 62};
+      return {position: [Math.sin(p * Math.PI * 3) * 2.4, Math.cos(p * Math.PI * 2) * 1.2, 14 - p * 24 - beatPush * 2.2], rotation: [Math.sin(t * 0.04) * 0.18, Math.sin(t * 0.03) * 0.2, Math.sin(t * 0.02) * 0.08 + beatPush * 0.04], fov: 62 + beatPush * 5};
     case 'Glyph Corridor Rush':
     case 'Kanji Gate Dash':
     case 'Chromatic Speed Tunnel':
-      return {position: [0, 0, 8], rotation: [0, 0, 0], fov: name === 'Kanji Gate Dash' ? 68 : 76};
+      return {position: [0, 0, 8 - beatPush * 1.1], rotation: [0, 0, beatPush * 0.025], fov: (name === 'Kanji Gate Dash' ? 68 : 76) + beatPush * 4};
     case 'Camera Whip Words':
       return {position: [(1 - easeOut(p)) * -8 + Math.sin(t * 0.22) * 0.5, 0, 8], rotation: [0, (1 - easeOut(p)) * 0.9, Math.sin(t * 0.16) * 0.08], fov: 54};
     case 'Orbit Camera Snap':
@@ -292,9 +304,9 @@ const cameraForPreset = (name: ThreeTextEffectName, frame: number, lyric: LyricB
     case 'Deep Focus Swap':
       return {position: [0, 0, 12 - easeInOut(p) * 8], rotation: [0, 0, 0], fov: 38 + Math.sin(p * Math.PI) * 18};
     case 'Massive Word Eclipse':
-      return {position: [0, 0, 12], rotation: [0, 0, 0], fov: 42};
+      return {position: [0, 0, 12 - beatPush * 1.4], rotation: [0, 0, 0], fov: 42 + beatPush * 3};
     default:
-      return base;
+      return {...base, position: [base.position[0], base.position[1], base.position[2] - beatPush * 0.8], fov: base.fov + beatPush * 2};
   }
 };
 
@@ -305,6 +317,7 @@ const letterStateForPreset = (
   index: number,
   total: number,
   textColor: string,
+  beatIntensity = 0,
   unitStartFrame?: number,
   unitEndFrame?: number
 ): LetterState => {
@@ -318,11 +331,14 @@ const letterStateForPreset = (
   const angle = (index / Math.max(1, total)) * Math.PI * 2;
   const centerOffset = (index - (total - 1) / 2) * 0.72 * frameSettings.scale;
   const flicker = name.includes('Glitch') || name.includes('Broken') ? (frame + index) % 9 < 2 ? 0.55 : 1 : 1;
+  const beatPunch = Math.pow(beatIntensity, 0.72);
+  const beatScale = 1 + beatPunch * Math.min(0.45, 0.07 + lyric.effectIntensity * 0.025);
+  const beatZ = beatPunch * Math.min(1.6, 0.35 + lyric.effectIntensity * 0.08);
   const state: LetterState = {
     position: [base[0] + centerOffset, base[1], base[2]],
     rotation: [0, 0, 0],
-    scale: frameSettings.scale,
-    opacity: lp * flicker,
+    scale: frameSettings.scale * beatScale,
+    opacity: Math.min(1, lp * flicker * (1 + beatPunch * 0.18)),
     color: presetColor(textColor, name, frame, index),
   };
 
@@ -330,7 +346,7 @@ const letterStateForPreset = (
     case 'Orbit Giant Letters':
       return {
         ...state,
-        position: [base[0] + Math.cos(angle + p * Math.PI * 2) * 4.8, base[1] + Math.sin(angle * 1.7) * 1.2, Math.sin(angle + p * Math.PI * 2) * 4.8],
+        position: [base[0] + Math.cos(angle + p * Math.PI * 2) * 4.8, base[1] + Math.sin(angle * 1.7) * 1.2, Math.sin(angle + p * Math.PI * 2) * 4.8 + beatZ],
         rotation: [0, -angle - p * Math.PI * 2, (1 - e) * Math.PI * 2],
         scale: frameSettings.scale * (1.45 + Math.sin(angle + p * Math.PI * 2) * 0.18),
       };
@@ -338,7 +354,7 @@ const letterStateForPreset = (
       const x = (rng() - 0.5) * 9;
       const y = (rng() - 0.5) * 5;
       const z = -index * 3.2 + p * total * 3.2 - 5;
-      return {...state, position: [x, y, z], rotation: [(rng() - 0.5) * 1.4 * (1 - e), (rng() - 0.5) * 1.6 * (1 - e), 0], scale: frameSettings.scale * (0.85 + e * 0.35), opacity: clamp(1 - Math.abs(z) / 15) * flicker};
+      return {...state, position: [x, y, z + beatZ], rotation: [(rng() - 0.5) * 1.4 * (1 - e), (rng() - 0.5) * 1.6 * (1 - e), beatPunch * 0.08], scale: frameSettings.scale * (0.85 + e * 0.35) * beatScale, opacity: clamp(1 - Math.abs(z) / 15) * flicker};
     }
     case 'Text Tunnel Dive':
     case 'Data Glitch Corridor': {
@@ -352,14 +368,14 @@ const letterStateForPreset = (
       const side = lane < 2 ? -1 : 1;
       const y = lane % 2 === 0 ? -2.05 : 1.85;
       const z = -row * 4.2 + p * 58;
-      const speedGlow = 0.45 + clamp(Math.sin(p * Math.PI) + 0.2, 0, 1) * 0.55;
+      const speedGlow = 0.45 + clamp(Math.sin(p * Math.PI) + 0.2, 0, 1) * 0.55 + beatPunch * 0.22;
       const localPosition: Vec3 = [side * (4.8 + Math.sin(row * 0.9) * 0.34), y + Math.sin(frame * 0.08 + row) * 0.08, z];
       const localRotation: Vec3 = [0, side > 0 ? -Math.PI / 2.8 : Math.PI / 2.8, side * 0.08];
       return {
         ...state,
-        position: applyBaseTransform(localPosition, base, frameSettings.rotation),
+        position: applyBaseTransform([localPosition[0], localPosition[1], localPosition[2] + beatZ * 1.8], base, frameSettings.rotation),
         rotation: addZRotation(localRotation, frameSettings.rotation),
-        scale: frameSettings.scale * flythroughScale(p) * (0.96 + (lane % 2) * 0.12),
+        scale: frameSettings.scale * flythroughScale(p) * (0.96 + (lane % 2) * 0.12) * beatScale,
         opacity: clamp(1 - Math.abs(z - 8) / 24) * speedGlow * flicker,
         color: index % 3 === 0 ? '#67e8f9' : textColor,
       };
@@ -381,9 +397,9 @@ const letterStateForPreset = (
       ];
       return {
         ...state,
-        position: applyBaseTransform(positions[part], base, frameSettings.rotation),
+        position: applyBaseTransform([positions[part][0], positions[part][1], positions[part][2] + beatZ * 1.7], base, frameSettings.rotation),
         rotation: addZRotation(rotations[part], frameSettings.rotation),
-        scale: frameSettings.scale * flythroughScale(p) * (part === 2 ? 0.92 : 1.08) * gatePulse,
+        scale: frameSettings.scale * flythroughScale(p) * (part === 2 ? 0.92 : 1.08) * gatePulse * beatScale,
         opacity: clamp(1 - Math.abs(z - 8) / 27) * flicker,
         color: gate % 2 === 0 ? textColor : '#f8fafc',
       };
@@ -399,9 +415,9 @@ const letterStateForPreset = (
       const offset = channel === 0 ? -0.16 : channel === 1 ? 0.16 : 0;
       return {
         ...state,
-        position: applyBaseTransform([Math.cos(spin) * (radius + offset), Math.sin(spin) * (radius * 0.58 + offset * 0.5), z], base, frameSettings.rotation),
+        position: applyBaseTransform([Math.cos(spin) * (radius + offset), Math.sin(spin) * (radius * 0.58 + offset * 0.5), z + beatZ * 1.6], base, frameSettings.rotation),
         rotation: addZRotation([0.12, 0, spin + Math.PI / 2], frameSettings.rotation),
-        scale: frameSettings.scale * flythroughScale(p) * 0.92,
+        scale: frameSettings.scale * flythroughScale(p) * 0.92 * beatScale,
         opacity: clamp(1 - Math.abs(z - 8) / 23) * (0.75 + Math.sin(frame * 0.55 + index) * 0.2),
         color,
       };
@@ -458,7 +474,8 @@ const ThreeLyric: React.FC<{
   lyric: LyricBlock;
   globalSettings: GlobalSettings;
   frame: number;
-}> = ({lyric, globalSettings, frame}) => {
+  beatIntensity: number;
+}> = ({lyric, globalSettings, frame, beatIntensity}) => {
   const effectName = lyric.textEffect as ThreeTextEffectName;
   const sourceChars = splitText(lyric.text);
   const baseChars = sourceChars.length > 0 ? sourceChars : [' '];
@@ -486,7 +503,7 @@ const ThreeLyric: React.FC<{
     <>
       <group>
         {renderUnits.map((unit, index) => {
-          const state = letterStateForPreset(effectName, lyric, frame, index, renderUnits.length, textColor, unit.startFrame, unit.endFrame);
+          const state = letterStateForPreset(effectName, lyric, frame, index, renderUnits.length, textColor, beatIntensity, unit.startFrame, unit.endFrame);
           return (
             <TextPlane
               key={unit.id}
@@ -511,9 +528,11 @@ export const isThreeTextEffect = (effect: string) =>
 export const ThreeTextEffectsLayer: React.FC<{
   lyrics: LyricBlock[];
   globalSettings: GlobalSettings;
-}> = ({lyrics, globalSettings}) => {
+  beatMarkers?: BeatMarker[];
+}> = ({lyrics, globalSettings, beatMarkers}) => {
   const frame = useCurrentFrame();
   const {width, height} = useVideoConfig();
+  const beatIntensity = getBeatIntensity(frame, beatMarkers);
   const activeThreeLyrics = lyrics.filter(
     (lyric) => frame >= lyric.startFrame && frame < lyric.endFrame && isThreeTextEffect(lyric.textEffect)
   );
@@ -522,7 +541,7 @@ export const ThreeTextEffectsLayer: React.FC<{
     return null;
   }
   const leadLyric = activeThreeLyrics[activeThreeLyrics.length - 1];
-  const leadCamera = cameraForPreset(leadLyric.textEffect as ThreeTextEffectName, frame, leadLyric);
+  const leadCamera = cameraForPreset(leadLyric.textEffect as ThreeTextEffectName, frame, leadLyric, beatIntensity);
 
   return (
     <ThreeCanvas
@@ -534,7 +553,7 @@ export const ThreeTextEffectsLayer: React.FC<{
       <ambientLight intensity={0.85} />
       <directionalLight position={[4, 5, 8]} intensity={0.65} />
       {activeThreeLyrics.map((lyric) => (
-        <ThreeLyric key={lyric.id} lyric={lyric} globalSettings={globalSettings} frame={frame} />
+        <ThreeLyric key={lyric.id} lyric={lyric} globalSettings={globalSettings} frame={frame} beatIntensity={beatIntensity} />
       ))}
     </ThreeCanvas>
   );

@@ -39,7 +39,7 @@ const readJsonBody = (request) =>
     let body = '';
     request.on('data', (chunk) => {
       body += chunk;
-      if (body.length > 10 * 1024 * 1024) {
+      if (body.length > 200 * 1024 * 1024) {
         reject(new Error('Request body is too large.'));
         request.destroy();
       }
@@ -59,17 +59,20 @@ const sendJson = (response, statusCode, payload) => {
   response.end(JSON.stringify(payload));
 };
 
-const renderMov = async (payload) => {
+const renderMp4 = async (payload) => {
   const lyrics = Array.isArray(payload.lyrics) ? payload.lyrics : [];
+  const imageBlocks = Array.isArray(payload.imageBlocks) ? payload.imageBlocks : [];
   const durationInFrames = Math.max(1, Math.round(Number(payload.durationInFrames) || 300));
   const inputProps = {
     lyrics,
+    imageBlocks,
     globalSettings: payload.globalSettings,
+    audioUrl: typeof payload.audioUrl === 'string' ? payload.audioUrl : undefined,
     beatMarkers: Array.isArray(payload.beatMarkers) ? payload.beatMarkers : [],
     durationInFrames,
   };
   const tempDir = await mkdtemp(path.join(tmpdir(), 'lyricvid-export-'));
-  const outputLocation = path.join(tempDir, 'transparent_video.mov');
+  const outputLocation = path.join(tempDir, 'music_video.mp4');
 
   try {
     const serveUrl = await bundle({
@@ -86,13 +89,12 @@ const renderMov = async (payload) => {
       serveUrl,
       composition,
       inputProps,
-      codec: 'prores',
-      proResProfile: '4444',
-      pixelFormat: 'yuva444p10le',
-      imageFormat: 'png',
+      codec: 'h264',
+      crf: 18,
+      imageFormat: 'jpeg',
       outputLocation,
       overwrite: true,
-      muted: true,
+      muted: !inputProps.audioUrl,
       logLevel: 'warn',
     });
     return {
@@ -118,20 +120,20 @@ const vite = await createViteServer({
 });
 
 const server = createHttpServer(async (request, response) => {
-  if (request.method === 'POST' && request.url === '/api/export/mov') {
+  if (request.method === 'POST' && request.url === '/api/export/mp4') {
     try {
       const payload = await readJsonBody(request);
-      const result = await renderMov(payload);
+      const result = await renderMp4(payload);
       response.writeHead(200, {
-        'Content-Type': 'video/quicktime',
-        'Content-Disposition': 'attachment; filename="transparent_video.mov"',
+        'Content-Type': 'video/mp4',
+        'Content-Disposition': 'attachment; filename="music_video.mp4"',
         'Content-Length': result.buffer.length,
       });
       response.end(result.buffer);
       await result.cleanup();
     } catch (error) {
       sendJson(response, 500, {
-        error: error instanceof Error ? error.message : 'MOV export failed.',
+        error: error instanceof Error ? error.message : 'MP4 export failed.',
       });
     }
     return;

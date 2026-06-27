@@ -1,4 +1,4 @@
-import {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS} from './effects';
+import {EFFECT_OPTIONS, IMAGE_EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS} from './effects';
 
 export interface LyricBlock {
   id: string;
@@ -98,6 +98,44 @@ export interface GlobalSettings {
   fadeOutFrames?: number;
   fadeInPattern?: string;
   fadeOutPattern?: string;
+}
+
+export type ImageEffectName = (typeof IMAGE_EFFECT_OPTIONS)[number];
+export type ImageEffectCategory = 'motion' | 'glitch' | 'color' | 'texture';
+export type ImageKeyframeProperty = 'x' | 'y' | 'scale' | 'rotation' | 'opacity' | 'effectIntensity' | 'effectSpeed';
+
+export interface ImageEffectSlot {
+  category: ImageEffectCategory;
+  enabled: boolean;
+  effect: ImageEffectName;
+  intensity: number;
+}
+
+export interface ImageKeyframe {
+  id: string;
+  frame: number;
+  property: ImageKeyframeProperty;
+  value: number;
+}
+
+export interface ImageBlock {
+  id: string;
+  name: string;
+  src: string;
+  layer: 0 | 1 | 2;
+  startFrame: number;
+  endFrame: number;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+  effect: ImageEffectName;
+  effectIntensity: number;
+  effectSpeed: number;
+  beatSync: boolean;
+  imageEffects?: ImageEffectSlot[];
+  keyframes?: ImageKeyframe[];
 }
 
 export type BeatMarker = {
@@ -288,7 +326,7 @@ export const getFontMetadata = (font: string): FontMetadata =>
     tags: ['custom'],
   };
 
-export {EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS};
+export {EFFECT_OPTIONS, IMAGE_EFFECT_OPTIONS, TEXT_EFFECT_OPTIONS, THREE_TEXT_EFFECT_OPTIONS};
 
 export const FADE_PATTERN_OPTIONS = [
   'None',

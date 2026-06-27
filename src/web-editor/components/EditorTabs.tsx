@@ -8,6 +8,11 @@ import {
   FontCategory,
   FONT_OPTIONS,
   GlobalSettings,
+  ImageBlock,
+  ImageEffectCategory,
+  ImageEffectName,
+  ImageEffectSlot,
+  ImageKeyframeProperty,
   LyricBlock,
   LyricKeyframeProperty,
   LyricRole,
@@ -36,12 +41,16 @@ import {LyricComposition} from './LyricComposition';
 interface EditorTabsProps {
   lyrics: LyricBlock[];
   setLyrics: React.Dispatch<React.SetStateAction<LyricBlock[]>>;
+  imageBlocks: ImageBlock[];
+  setImageBlocks: React.Dispatch<React.SetStateAction<ImageBlock[]>>;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  selectedImageId: string | null;
+  setSelectedImageId: (id: string | null) => void;
   globalSettings: GlobalSettings;
   setGlobalSettings: React.Dispatch<React.SetStateAction<GlobalSettings>>;
-  audioFile: {name: string; url: string; duration?: number} | null;
-  setAudioFile: (file: {name: string; url: string; duration?: number} | null) => void;
+  audioFile: {name: string; url: string; dataUrl?: string; duration?: number} | null;
+  setAudioFile: React.Dispatch<React.SetStateAction<{name: string; url: string; dataUrl?: string; duration?: number} | null>>;
   beatMarkers: BeatMarker[];
   setBeatMarkers: React.Dispatch<React.SetStateAction<BeatMarker[]>>;
   durationInFrames: number;
@@ -50,9 +59,11 @@ interface EditorTabsProps {
   setTrackCount: React.Dispatch<React.SetStateAction<number>>;
   applyProjectStateUpdate: (update: {
     lyrics: LyricBlock[];
+    imageBlocks?: ImageBlock[];
     globalSettings: GlobalSettings;
     trackCount?: number;
     selectedId?: string | null;
+    selectedImageId?: string | null;
   }) => void;
   activeTab: 'edit' | 'input' | 'output' | 'help';
   setActiveTab: (tab: 'edit' | 'input' | 'output' | 'help') => void;
@@ -219,6 +230,75 @@ const KEYFRAME_PROPERTIES: Array<{value: LyricKeyframeProperty; label: string; t
   {value: 'fadeInFrames', label: 'フェードINフレーム', type: 'number'},
   {value: 'fadeOutFrames', label: 'フェードOUTフレーム', type: 'number'},
   {value: 'effectSpeed', label: '表示速度', type: 'number'},
+];
+
+const IMAGE_KEYFRAME_PROPERTIES: Array<{value: ImageKeyframeProperty; label: string; step: number}> = [
+  {value: 'x', label: 'X', step: 1},
+  {value: 'y', label: 'Y', step: 1},
+  {value: 'scale', label: 'Scale', step: 0.05},
+  {value: 'rotation', label: 'Rotation', step: 1},
+  {value: 'opacity', label: 'Opacity', step: 0.05},
+  {value: 'effectIntensity', label: 'Effect intensity', step: 1},
+  {value: 'effectSpeed', label: 'Effect speed', step: 1},
+];
+
+const IMAGE_EFFECT_CATEGORY_OPTIONS: Array<{
+  category: ImageEffectCategory;
+  label: string;
+  description: string;
+  options: ImageEffectName[];
+  defaultEffect: ImageEffectName;
+  accent: string;
+}> = [
+  {
+    category: 'motion',
+    label: 'Motion',
+    description: 'Zoom, shake, punch, drift',
+    options: ['Beat Zoom', 'Beat Shake', 'Bass Drop Zoom', 'Beat Blur Flash', 'Spin Zoom', 'Parallax Drift', 'Pixel Punch', 'Bass Shake Zoom', 'Directional Punch'],
+    defaultEffect: 'Bass Shake Zoom',
+    accent: '#38bdf8',
+  },
+  {
+    category: 'glitch',
+    label: 'Glitch',
+    description: 'RGB split, slices, digital hits',
+    options: ['Glitch Hit', 'RGB Glitch', 'Slice Glitch', 'Pixel Punch'],
+    defaultEffect: 'RGB Glitch',
+    accent: '#f472b6',
+  },
+  {
+    category: 'color',
+    label: 'Color',
+    description: 'Brightness, contrast, saturation',
+    options: ['Flash Pulse', 'Dark Pulse', 'Saturation Pulse', 'Beat Blur Flash'],
+    defaultEffect: 'Saturation Pulse',
+    accent: '#facc15',
+  },
+  {
+    category: 'texture',
+    label: 'Texture',
+    description: 'VHS, blur, analog noise feel',
+    options: ['VHS Jitter', 'Beat Blur Flash', 'Pixel Punch'],
+    defaultEffect: 'VHS Jitter',
+    accent: '#a78bfa',
+  },
+];
+
+const createDefaultImageEffectSlots = (): ImageEffectSlot[] =>
+  IMAGE_EFFECT_CATEGORY_OPTIONS.map((category, index) => ({
+    category: category.category,
+    enabled: index === 0,
+    effect: category.defaultEffect,
+    intensity: index === 0 ? 5 : 4,
+  }));
+
+const QUICK_THREE_TEXT_PRESETS: Array<{label: string; effect: (typeof THREE_TEXT_EFFECT_OPTIONS)[number]}> = [
+  {label: 'Tunnel', effect: 'Glyph Corridor Rush'},
+  {label: 'Gate Dash', effect: 'Kanji Gate Dash'},
+  {label: 'Speed RGB', effect: 'Chromatic Speed Tunnel'},
+  {label: 'Orbit', effect: 'Orbit Giant Letters'},
+  {label: 'Camera Rush', effect: 'FPS Letter Rush'},
+  {label: 'Eclipse', effect: 'Massive Word Eclipse'},
 ];
 
 const EFFECT_PURPOSE_LABELS: Record<EffectPurpose, string> = {
@@ -1290,8 +1370,12 @@ const FontPicker: React.FC<{
 export const EditorTabs: React.FC<EditorTabsProps> = ({
   lyrics,
   setLyrics,
+  imageBlocks,
+  setImageBlocks,
   selectedId,
   setSelectedId,
+  selectedImageId,
+  setSelectedImageId,
   globalSettings,
   setGlobalSettings,
   audioFile,
@@ -1310,13 +1394,16 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedBlock = lyrics.find((lyric) => lyric.id === selectedId);
+  const selectedImageBlock = imageBlocks.find((image) => image.id === selectedImageId);
   const selectedTokens = selectedBlock ? getLyricTokens(selectedBlock) : [];
   const [keyframeProperty, setKeyframeProperty] = useState<LyricKeyframeProperty>('x');
   const [keyframeValue, setKeyframeValue] = useState('');
+  const [imageKeyframeProperty, setImageKeyframeProperty] = useState<ImageKeyframeProperty>('scale');
   const [exportStatus, setExportStatus] = useState<ExportStatus>({
     kind: 'idle',
-    message: '透明背景のProRes 4444 MOVを書き出します。',
+    message: 'MP4を書き出します。',
   });
   const [lrcDurationMode, setLrcDurationMode] = useState<LrcDurationMode>('nextMinus');
   const [lrcEarlyEndFrames, setLrcEarlyEndFrames] = useState(6);
@@ -1717,6 +1804,62 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   const updateSelectedBlock = (updates: Partial<LyricBlock>) => {
     if (!selectedId) return;
     setLyrics((prev) => prev.map((lyric) => (lyric.id === selectedId ? {...lyric, ...updates} : lyric)));
+  };
+
+  const updateSelectedImageBlock = (updates: Partial<ImageBlock>) => {
+    if (!selectedImageId) return;
+    setImageBlocks((prev) => prev.map((image) => (image.id === selectedImageId ? {...image, ...updates} : image)));
+  };
+
+  const getImageEffectSlots = (image: ImageBlock): ImageEffectSlot[] => {
+    const existing = image.imageEffects ?? [];
+    return IMAGE_EFFECT_CATEGORY_OPTIONS.map((category) => {
+      const slot = existing.find((item) => item.category === category.category);
+      return {
+        category: category.category,
+        enabled: slot?.enabled ?? false,
+        effect: slot?.effect && category.options.includes(slot.effect) ? slot.effect : category.defaultEffect,
+        intensity: Math.max(0, Math.min(10, Number(slot?.intensity ?? image.effectIntensity ?? 5))),
+      };
+    });
+  };
+
+  const updateSelectedImageEffectSlot = (category: ImageEffectCategory, updates: Partial<ImageEffectSlot>) => {
+    if (!selectedImageBlock) return;
+    updateSelectedImageBlock({
+      imageEffects: getImageEffectSlots(selectedImageBlock).map((slot) =>
+        slot.category === category ? {...slot, ...updates, category} : slot
+      ),
+    });
+  };
+
+  const deleteSelectedImageBlock = () => {
+    if (!selectedImageId) return;
+    setImageBlocks((prev) => prev.filter((image) => image.id !== selectedImageId));
+    setSelectedImageId(null);
+  };
+
+  const addImageKeyframe = () => {
+    if (!selectedImageBlock) return;
+    const property = imageKeyframeProperty;
+    const value = Number(selectedImageBlock[property]);
+    const keyframe = {
+      id: `image-keyframe-${Date.now()}`,
+      frame: Math.max(selectedImageBlock.startFrame, Math.min(selectedImageBlock.endFrame, currentFrame)),
+      property,
+      value,
+    };
+    updateSelectedImageBlock({
+      keyframes: [
+        ...(selectedImageBlock.keyframes ?? []).filter((item) => !(item.frame === keyframe.frame && item.property === property)),
+        keyframe,
+      ].sort((a, b) => a.frame - b.frame),
+    });
+  };
+
+  const deleteImageKeyframe = (id: string) => {
+    if (!selectedImageBlock) return;
+    updateSelectedImageBlock({keyframes: (selectedImageBlock.keyframes ?? []).filter((keyframe) => keyframe.id !== id)});
   };
 
   const updateSelectedBlockWithTokens = (updates: Partial<LyricBlock>, mode?: LyricTokenMode) => {
@@ -2137,17 +2280,64 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
+    setAudioFile({name: file.name, url});
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = String(event.target?.result ?? '') || undefined;
+      setAudioFile((previous) => previous?.url === url ? {...previous, dataUrl} : previous);
+    };
+    reader.readAsDataURL(file);
     const audio = new Audio(url);
     audio.onloadedmetadata = () => {
-      setAudioFile({name: file.name, url, duration: Number.isFinite(audio.duration) ? audio.duration : undefined});
+      const duration = Number.isFinite(audio.duration) ? audio.duration : undefined;
+      setAudioFile((previous) => previous?.url === url ? {...previous, duration} : {name: file.name, url, duration});
     };
     audio.onerror = () => {
-      setAudioFile({name: file.name, url});
+      setAudioFile((previous) => previous?.url === url ? previous : {name: file.name, url});
     };
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).slice(0, 3);
+    if (files.length === 0) return;
+    files.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const src = String(event.target?.result ?? '');
+        if (!src) return;
+        const layer = Math.min(2, index) as ImageBlock['layer'];
+        const id = `image-${Date.now()}-${index}`;
+        const image: ImageBlock = {
+          id,
+          name: file.name,
+          src,
+          layer,
+          startFrame: currentFrame,
+          endFrame: Math.min(durationInFrames, currentFrame + 120),
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 0,
+          opacity: 1,
+          effect: 'Slow Zoom In',
+          effectIntensity: 4,
+          effectSpeed: 5,
+          beatSync: true,
+          imageEffects: createDefaultImageEffectSlots(),
+          keyframes: [],
+        };
+        setImageBlocks((prev) => [...prev, image]);
+        setSelectedImageId(id);
+        setSelectedId(null);
+        setActiveTab('edit');
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
   const exportProjectJson = () => {
-    const blob = new Blob([JSON.stringify({lyrics, globalSettings, trackCount, beatMarkers}, null, 2)], {type: 'application/json'});
+    const blob = new Blob([JSON.stringify({lyrics, imageBlocks, globalSettings, trackCount, beatMarkers}, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -2185,6 +2375,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         setGlobalSettings(nextGlobalSettings);
         if (parsed.globalSettings && nextGlobalSettings !== parsed.globalSettings) messages.push('globalSettingsを現在の形式へ補正しました。');
         if (Array.isArray(parsed.beatMarkers)) setBeatMarkers(normalizeBeatMarkers(parsed.beatMarkers));
+        if (Array.isArray(parsed.imageBlocks)) setImageBlocks(parsed.imageBlocks as ImageBlock[]);
         if (Number.isFinite(parsed.trackCount)) {
           setTrackCount(Math.max(4, Number(parsed.trackCount)));
         } else if (Array.isArray(parsed.lyrics)) {
@@ -2213,8 +2404,8 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const exportMov = async () => {
-    const filename = 'transparent_video.mov';
+  const exportMp4 = async () => {
+    const filename = 'music_video.mp4';
     let fileHandle: FileSystemFileHandle | null = null;
 
     try {
@@ -2223,20 +2414,22 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           suggestedName: filename,
           types: [
             {
-              description: 'QuickTime MOV',
-              accept: {'video/quicktime': ['.mov']},
+              description: 'MP4 Video',
+              accept: {'video/mp4': ['.mp4']},
             },
           ],
         });
       }
 
       setExportStatus({kind: 'rendering', message: 'レンダリング中です。長めの動画では数分かかることがあります。'});
-      const response = await fetch('/api/export/mov', {
+      const response = await fetch('/api/export/mp4', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           lyrics,
+          imageBlocks,
           globalSettings,
+          audioUrl: audioFile?.dataUrl,
           beatMarkers,
           durationInFrames,
           fps: 30,
@@ -2244,8 +2437,8 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({error: 'MOV出力に失敗しました。'}));
-        throw new Error(String(error.error ?? 'MOV出力に失敗しました。'));
+        const error = await response.json().catch(() => ({error: 'MP4出力に失敗しました。'}));
+        throw new Error(String(error.error ?? 'MP4出力に失敗しました。'));
       }
 
       const blob = await response.blob();
@@ -2256,7 +2449,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
       } else {
         downloadBlob(blob, filename);
       }
-      setExportStatus({kind: 'done', message: 'MOV出力が完了しました。'});
+      setExportStatus({kind: 'done', message: 'MP4出力が完了しました。'});
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         setExportStatus({kind: 'idle', message: '出力をキャンセルしました。'});
@@ -2264,7 +2457,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
       }
       setExportStatus({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'MOV出力に失敗しました。',
+        message: error instanceof Error ? error.message : 'MP4出力に失敗しました。',
       });
     }
   };
@@ -2639,6 +2832,32 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
               <EffectPicker label="歌唱中エフェクト" value={selectedBlock.textEffect} options={TEXT_EFFECT_OPTIONS} kind="textEffect" onChange={(value) => updateSelectedBlock({textEffect: value})} />
               <label>歌唱中エフェクト速度: {selectedBlock.effectSpeed}</label>
               <input type="range" min="1" max="10" step="1" value={selectedBlock.effectSpeed} onChange={(e) => updateSelectedBlock({effectSpeed: Number(e.target.value)})} />
+              <div style={{display: 'flex', flexDirection: 'column', gap: 8, padding: 10, borderRadius: 8, border: '1px solid rgba(96,165,250,.28)', background: 'rgba(15,23,42,.6)'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8}}>
+                  <strong style={{fontSize: 12, color: '#bfdbfe'}}>3D Text Quick</strong>
+                  <span style={{fontSize: 11, color: beatMarkers.length ? '#67e8f9' : '#64748b'}}>
+                    {beatMarkers.length ? 'Beat reactive' : 'Add BPM/beat for motion'}
+                  </span>
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6}}>
+                  {QUICK_THREE_TEXT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.effect}
+                      type="button"
+                      onClick={() => updateSelectedBlockWithTokens({textEffect: preset.effect, tokenMode: 'char', effectSpeed: Math.max(7, selectedBlock.effectSpeed), effectIntensity: Math.max(7, selectedBlock.effectIntensity)}, 'char')}
+                      style={{
+                        ...buttonStyle,
+                        padding: '7px 8px',
+                        background: selectedBlock.textEffect === preset.effect ? '#2563eb' : '#111827',
+                        border: '1px solid rgba(147,197,253,.24)',
+                        fontSize: 11,
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={fieldStyle}>
                 <label>文字色</label>
                 <div style={{display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8}}>
@@ -2705,7 +2924,151 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           </div>
         )}
 
-        {activeTab === 'edit' && !selectedBlock && (
+        {activeTab === 'edit' && selectedImageBlock && (
+          <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
+            <div style={sectionStyle}>
+              <h3 style={{marginTop: 0, color: '#f3f4f6'}}>Image Layer</h3>
+              <div style={{fontSize: 12, color: '#93c5fd', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                {selectedImageBlock.name}
+              </div>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10}}>
+                <div style={fieldStyle}>
+                  <label>Layer</label>
+                  <select value={selectedImageBlock.layer} onChange={(event) => updateSelectedImageBlock({layer: Number(event.target.value) as ImageBlock['layer']})}>
+                    <option value={0}>Image 1</option>
+                    <option value={1}>Image 2</option>
+                    <option value={2}>Image 3</option>
+                  </select>
+                </div>
+                <label style={{display: 'flex', alignItems: 'center', gap: 8, margin: 0, padding: '8px 10px', borderRadius: 8, background: 'rgba(15,23,42,.75)', border: '1px solid rgba(147,197,253,.16)'}}>
+                  <input type="checkbox" checked={selectedImageBlock.beatSync} onChange={(event) => updateSelectedImageBlock({beatSync: event.target.checked})} />
+                  <span>
+                    <strong style={{display: 'block', color: '#e0f2fe', fontSize: 12}}>Beat/BPM Sync</strong>
+                    <span style={{color: '#94a3b8', fontSize: 11}}>Apply beats to enabled slots</span>
+                  </span>
+                </label>
+                <div style={fieldStyle}>
+                  <label>Start frame</label>
+                  <input type="number" value={selectedImageBlock.startFrame} onChange={(event) => updateSelectedImageBlock({startFrame: Math.max(0, Number(event.target.value) || 0)})} />
+                </div>
+                <div style={fieldStyle}>
+                  <label>End frame</label>
+                  <input type="number" value={selectedImageBlock.endFrame} onChange={(event) => updateSelectedImageBlock({endFrame: Math.max(selectedImageBlock.startFrame + 1, Number(event.target.value) || selectedImageBlock.startFrame + 1)})} />
+                </div>
+              </div>
+            </div>
+
+            <div style={sectionStyle}>
+              <h4>Transform</h4>
+              <label>Scale: {selectedImageBlock.scale.toFixed(2)}</label>
+              <input type="range" min="0.1" max="4" step="0.05" value={selectedImageBlock.scale} onChange={(event) => updateSelectedImageBlock({scale: Number(event.target.value)})} />
+              <label>X: {selectedImageBlock.x}px</label>
+              <input type="range" min="-960" max="960" step="5" value={selectedImageBlock.x} onChange={(event) => updateSelectedImageBlock({x: Number(event.target.value)})} />
+              <label>Y: {selectedImageBlock.y}px</label>
+              <input type="range" min="-540" max="540" step="5" value={selectedImageBlock.y} onChange={(event) => updateSelectedImageBlock({y: Number(event.target.value)})} />
+              <label>Rotation: {selectedImageBlock.rotation}deg</label>
+              <input type="range" min="-180" max="180" step="1" value={selectedImageBlock.rotation} onChange={(event) => updateSelectedImageBlock({rotation: Number(event.target.value)})} />
+              <label>Opacity: {selectedImageBlock.opacity.toFixed(2)}</label>
+              <input type="range" min="0" max="1" step="0.05" value={selectedImageBlock.opacity} onChange={(event) => updateSelectedImageBlock({opacity: Number(event.target.value)})} />
+            </div>
+
+            <div style={sectionStyle}>
+              <h4 style={{marginBottom: 10}}>Effect Slots</h4>
+              <label>Global speed: {selectedImageBlock.effectSpeed}</label>
+              <input type="range" min="1" max="10" step="1" value={selectedImageBlock.effectSpeed} onChange={(event) => updateSelectedImageBlock({effectSpeed: Number(event.target.value)})} />
+              <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginTop: 12}}>
+                {IMAGE_EFFECT_CATEGORY_OPTIONS.map((category) => {
+                  const slot = getImageEffectSlots(selectedImageBlock).find((item) => item.category === category.category);
+                  const enabled = Boolean(slot?.enabled);
+                  return (
+                    <div
+                      key={category.category}
+                      style={{
+                        display: 'grid',
+                        gap: 8,
+                        padding: 10,
+                        borderRadius: 8,
+                        background: enabled ? 'rgba(15,23,42,.92)' : 'rgba(15,23,42,.52)',
+                        border: `1px solid ${enabled ? category.accent : 'rgba(148,163,184,.18)'}`,
+                        boxShadow: enabled ? `0 0 0 1px ${category.accent}22, 0 8px 22px rgba(0,0,0,.18)` : undefined,
+                      }}
+                    >
+                      <label style={{display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer'}}>
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(event) => updateSelectedImageEffectSlot(category.category, {enabled: event.target.checked})}
+                        />
+                        <span style={{minWidth: 0}}>
+                          <strong style={{display: 'block', color: enabled ? category.accent : '#cbd5e1', fontSize: 13}}>{category.label}</strong>
+                          <span style={{display: 'block', color: '#94a3b8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{category.description}</span>
+                        </span>
+                      </label>
+                      <select
+                        value={slot?.effect ?? category.defaultEffect}
+                        onChange={(event) => updateSelectedImageEffectSlot(category.category, {effect: event.target.value as ImageEffectName, enabled: true})}
+                        style={{opacity: enabled ? 1 : 0.62}}
+                      >
+                        {category.options.map((effect) => (
+                          <option key={effect} value={effect}>{effect}</option>
+                        ))}
+                      </select>
+                      {enabled && (
+                        <div style={{display: 'grid', gap: 5}}>
+                          <div style={{display: 'flex', justifyContent: 'space-between', color: '#dbeafe', fontSize: 12}}>
+                            <span>Intensity</span>
+                            <strong>{slot?.intensity ?? 5}</strong>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="1"
+                            value={slot?.intensity ?? 5}
+                            onChange={(event) => updateSelectedImageEffectSlot(category.category, {intensity: Number(event.target.value)})}
+                            style={{accentColor: category.accent}}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={sectionStyle}>
+              <h4>Image Keyframes</h4>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end'}}>
+                <div style={fieldStyle}>
+                  <label>Property</label>
+                  <select value={imageKeyframeProperty} onChange={(event) => setImageKeyframeProperty(event.target.value as ImageKeyframeProperty)}>
+                    {IMAGE_KEYFRAME_PROPERTIES.map((property) => (
+                      <option key={property.value} value={property.value}>{property.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" onClick={addImageKeyframe} style={{...buttonStyle, padding: '8px 10px', background: '#2563eb'}}>
+                  Add @ {currentFrame}f
+                </button>
+              </div>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10}}>
+                {(selectedImageBlock.keyframes ?? []).length === 0 && <span style={{fontSize: 12, color: '#64748b'}}>No image keyframes yet.</span>}
+                {(selectedImageBlock.keyframes ?? []).map((keyframe) => (
+                  <div key={keyframe.id} style={{display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', fontSize: 12, color: '#dbeafe'}}>
+                    <span>{keyframe.frame}f / {keyframe.property} = {keyframe.value}</span>
+                    <button type="button" onClick={() => deleteImageKeyframe(keyframe.id)} style={{...buttonStyle, padding: '4px 8px', background: '#991b1b'}}>Delete</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button type="button" onClick={deleteSelectedImageBlock} style={{...buttonStyle, background: '#b91c1c'}}>
+              Delete Image Block
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'edit' && !selectedBlock && !selectedImageBlock && (
           <div style={{color: '#9ca3af', fontSize: 13, textAlign: 'center', marginTop: 40}}>
             タイムライン上のリリックブロックを選択してください。
           </div>
@@ -2719,6 +3082,9 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
               <input type="file" ref={fileInputRef} accept=".lrc" onChange={handleLrcImport} style={{display: 'none'}} />
               <button onClick={() => audioInputRef.current?.click()} style={{...buttonStyle, width: '100%', background: '#1f2937', border: '1px solid #4b5563', marginTop: 10}}>音楽ファイルを選択</button>
               <input type="file" ref={audioInputRef} accept="audio/*" onChange={handleAudioUpload} style={{display: 'none'}} />
+              <button onClick={() => imageInputRef.current?.click()} style={{...buttonStyle, width: '100%', background: '#164e63', border: '1px solid #38bdf8', marginTop: 10}}>Add Images / PNG</button>
+              <input type="file" ref={imageInputRef} accept="image/png,image/jpeg,image/webp" multiple onChange={handleImageUpload} style={{display: 'none'}} />
+              {imageBlocks.length > 0 && <div style={{fontSize: 12, color: '#93c5fd', marginTop: 6}}>{imageBlocks.length} image block(s)</div>}
               {audioFile && <div style={{fontSize: 12, color: '#10b981', marginTop: 6}}>{audioFile.name}</div>}
             </div>
 
@@ -3348,10 +3714,10 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
           <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
             <h4>動画エクスポート</h4>
             <p style={{fontSize: 12, color: '#9ca3af', lineHeight: 1.5}}>
-              透明背景のMOVを書き出します。ブラウザが保存先選択に対応している場合は、ボタンを押したあとに保存先を選べます。
+              合成済みのMP4を書き出します。ブラウザが保存先選択に対応している場合は、ボタンを押したあとに保存先を選べます。
             </p>
             <button
-              onClick={exportMov}
+              onClick={exportMp4}
               disabled={exportStatus.kind === 'rendering'}
               style={{
                 ...buttonStyle,
@@ -3359,7 +3725,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
                 cursor: exportStatus.kind === 'rendering' ? 'wait' : 'pointer',
               }}
             >
-              {exportStatus.kind === 'rendering' ? '出力中...' : 'MOVを書き出す'}
+              {exportStatus.kind === 'rendering' ? '出力中...' : 'MP4を書き出す'}
             </button>
             <div
               style={{
@@ -3387,7 +3753,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
                 <li>タイムラインで歌詞ブロックを選択します。</li>
                 <li>編集で文字、歌詞同期単位、開始/終了、位置、倍率、角度、色、枠線、エフェクトを調整します。</li>
                 <li>動きを付けたい項目はキーフレームに登録します。</li>
-                <li>出力から透明背景のMOVを書き出します。</li>
+                <li>出力から合成済みMP4を書き出します。</li>
               </ol>
             </div>
             <div style={sectionStyle}>
@@ -3438,7 +3804,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
             <div style={sectionStyle}>
               <h4>プレビュー</h4>
               <p>文字位置ドラッグをONにすると、選択中の歌詞をプレビュー上で直接動かしてX/Yを調整できます。</p>
-              <p>動画背景色を透明にすると、MOV出力でも透明背景として扱われます。</p>
+              <p>PNG透過は編集・合成時に反映され、MP4では背景込みの映像として書き出されます。</p>
             </div>
           </div>
         )}

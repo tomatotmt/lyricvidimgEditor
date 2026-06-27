@@ -1,12 +1,16 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {BeatMarker, LyricBlock, LyricToken} from '../types';
+import {BeatMarker, ImageBlock, LyricBlock, LyricToken} from '../types';
 import {getLyricTokens} from '../lyricTokens';
 
 interface TimelineTracksProps {
   lyrics: LyricBlock[];
   setLyrics: React.Dispatch<React.SetStateAction<LyricBlock[]>>;
+  imageBlocks: ImageBlock[];
+  setImageBlocks: React.Dispatch<React.SetStateAction<ImageBlock[]>>;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  selectedImageId: string | null;
+  setSelectedImageId: (id: string | null) => void;
   currentFrame: number;
   setCurrentFrame: (frame: number) => void;
   durationInFrames: number;
@@ -49,6 +53,7 @@ type TokenBoundaryDragState = {
 
 const TRACK_HEIGHT = 36;
 const WAVEFORM_HEIGHT = 54;
+const IMAGE_LAYER_COUNT = 3;
 const SNAP_DISTANCE_FRAMES = 6;
 const TRACK_LABELS = ['Main Lyrics', 'Alt / Overlap', 'Emphasis', 'FX / Accent'];
 const FPS = 30;
@@ -160,8 +165,12 @@ const detectBeatMarkers = (channel: Float32Array, sampleRate: number, fps = FPS,
 export const TimelineTracks: React.FC<TimelineTracksProps> = ({
   lyrics,
   setLyrics,
+  imageBlocks,
+  setImageBlocks,
   selectedId,
   setSelectedId,
+  selectedImageId,
+  setSelectedImageId,
   currentFrame,
   setCurrentFrame,
   durationInFrames,
@@ -176,6 +185,7 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const dragStartRef = useRef<DragState | null>(null);
+  const imageDragStartRef = useRef<DragState | null>(null);
   const beatDragRef = useRef<BeatDragState | null>(null);
   const tokenBoundaryDragRef = useRef<TokenBoundaryDragState | null>(null);
   const keyframeDragRef = useRef<{blockId: string; keyframeId: string; startFrame: number; startX: number} | null>(null);
@@ -185,6 +195,7 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
   const [selectedBeatId, setSelectedBeatId] = useState<string | null>(null);
   const frameWidthPct = 100 / durationInFrames;
   const trackIndexes = Array.from({length: trackCount}, (_, index) => index);
+  const imageLayerIndexes = Array.from({length: IMAGE_LAYER_COUNT}, (_, index) => index);
   const trackLabel = (trackIndex: number) => TRACK_LABELS[trackIndex] ?? `Track ${trackIndex + 1}`;
   const selectedBeat = beatMarkers.find((marker, index) => markerKey(marker, index) === selectedBeatId);
   const detectedBeatCount = beatMarkers.filter((marker) => marker.source === 'detected').length;
@@ -276,6 +287,13 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
     if (!containerRef.current) return 0;
     const rect = containerRef.current.getBoundingClientRect();
     return Math.max(0, Math.min(trackCount - 1, Math.floor((clientY - rect.top) / TRACK_HEIGHT)));
+  };
+
+  const imageLayerFromPointer = (clientY: number) => {
+    if (!containerRef.current) return 0;
+    const rect = containerRef.current.getBoundingClientRect();
+    const y = clientY - rect.top - WAVEFORM_HEIGHT - trackCount * TRACK_HEIGHT;
+    return Math.max(0, Math.min(IMAGE_LAYER_COUNT - 1, Math.floor(y / TRACK_HEIGHT)));
   };
 
   const frameFromPointer = (clientX: number) => {
@@ -376,7 +394,7 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
   };
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.lyric-block')) return;
+    if ((e.target as HTMLElement).closest('.lyric-block, .image-block')) return;
     if (!containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
@@ -389,6 +407,7 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
   const handleBlockMouseDown = (e: React.MouseEvent, block: LyricBlock, mode: DragMode) => {
     e.stopPropagation();
     setSelectedId(block.id);
+    setSelectedImageId(null);
     dragStartRef.current = {
       id: block.id,
       startFrame: block.startFrame,
@@ -447,6 +466,60 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
 
     const handleMouseUp = () => {
       dragStartRef.current = null;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleImageBlockMouseDown = (e: React.MouseEvent, block: ImageBlock, mode: DragMode) => {
+    e.stopPropagation();
+    setSelectedImageId(block.id);
+    setSelectedId(null);
+    imageDragStartRef.current = {
+      id: block.id,
+      startFrame: block.startFrame,
+      endFrame: block.endFrame,
+      track: block.layer,
+      startX: e.clientX,
+      startY: e.clientY,
+      mode,
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const drag = imageDragStartRef.current;
+      if (!drag) return;
+      const deltaFrames = frameDeltaFromPointer(moveEvent.clientX, drag, moveEvent.altKey);
+      const duration = drag.endFrame - drag.startFrame;
+      const nextLayer = drag.mode === 'move' ? imageLayerFromPointer(moveEvent.clientY) : drag.track;
+
+      setImageBlocks((prev) =>
+        prev.map((image) => {
+          if (image.id !== drag.id) return image;
+          if (drag.mode === 'resize-start') {
+            const nextStart = snapToBeat(drag.startFrame + deltaFrames, beatMarkers, beatSnapEnabled && !moveEvent.altKey);
+            return {...image, startFrame: Math.max(0, Math.min(drag.endFrame - 1, nextStart))};
+          }
+          if (drag.mode === 'resize-end') {
+            const nextEnd = snapToBeat(drag.endFrame + deltaFrames, beatMarkers, beatSnapEnabled && !moveEvent.altKey);
+            return {...image, endFrame: Math.max(drag.startFrame + 1, Math.min(durationInFrames, nextEnd))};
+          }
+          const snappedStart = snapToBeat(drag.startFrame + deltaFrames, beatMarkers, beatSnapEnabled && !moveEvent.altKey);
+          const newStart = Math.max(0, Math.min(durationInFrames - duration, snappedStart));
+          return {
+            ...image,
+            startFrame: newStart,
+            endFrame: newStart + duration,
+            layer: nextLayer as ImageBlock['layer'],
+          };
+        })
+      );
+    };
+
+    const handleMouseUp = () => {
+      imageDragStartRef.current = null;
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
@@ -937,6 +1010,91 @@ export const TimelineTracks: React.FC<TimelineTracksProps> = ({
                           borderRadius: 2,
                           zIndex: 4,
                           cursor: 'ew-resize',
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+          </div>
+        ))}
+
+        {imageLayerIndexes.map((layerIndex) => (
+          <div
+            key={`image-layer-${layerIndex}`}
+            style={{
+              height: TRACK_HEIGHT,
+              borderTop: layerIndex === 0 ? '1px solid rgba(96,165,250,0.24)' : 'none',
+              borderBottom: layerIndex < IMAGE_LAYER_COUNT - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              position: 'relative',
+              background: layerIndex % 2 === 0 ? 'rgba(37,99,235,.05)' : 'rgba(14,165,233,.04)',
+            }}
+          >
+            <div style={{position: 'absolute', left: 8, top: 9, fontSize: 10, color: 'rgba(191,219,254,.62)', fontWeight: 800, zIndex: 1}}>
+              Image {layerIndex + 1}
+            </div>
+            {imageBlocks
+              .filter((image) => image.layer === layerIndex)
+              .map((block) => {
+                const widthPct = ((block.endFrame - block.startFrame) / durationInFrames) * 100;
+                const leftPct = (block.startFrame / durationInFrames) * 100;
+                return (
+                  <div
+                    key={block.id}
+                    onMouseDown={(event) => handleImageBlockMouseDown(event, block, 'move')}
+                    className="image-block"
+                    title="Drag to move / drag edges to trim / Alt for 1-frame adjustment"
+                    style={{
+                      position: 'absolute',
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                      top: 5,
+                      bottom: 5,
+                      minWidth: 18,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0 10px',
+                      boxSizing: 'border-box',
+                      borderRadius: 6,
+                      border: selectedImageId === block.id ? '1px solid #facc15' : '1px solid rgba(125,211,252,.55)',
+                      background: selectedImageId === block.id ? 'linear-gradient(90deg, rgba(14,116,144,.95), rgba(37,99,235,.88))' : 'linear-gradient(90deg, rgba(8,145,178,.85), rgba(30,64,175,.72))',
+                      color: '#eff6ff',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      overflow: 'hidden',
+                      cursor: 'grab',
+                      zIndex: selectedImageId === block.id ? 4 : 3,
+                      boxShadow: selectedImageId === block.id ? '0 0 14px rgba(250,204,21,.32)' : undefined,
+                    }}
+                  >
+                    <span
+                      onMouseDown={(event) => handleImageBlockMouseDown(event, block, 'resize-start')}
+                      style={{position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 2}}
+                    />
+                    <span style={{pointerEvents: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                      {block.name}
+                    </span>
+                    <span
+                      onMouseDown={(event) => handleImageBlockMouseDown(event, block, 'resize-end')}
+                      style={{position: 'absolute', right: 0, top: 0, bottom: 0, width: 8, cursor: 'ew-resize', zIndex: 2}}
+                    />
+                    {(block.keyframes ?? []).map((keyframe) => (
+                      <span
+                        key={keyframe.id}
+                        title={`${keyframe.property}: ${keyframe.value} @ ${keyframe.frame}f`}
+                        style={{
+                          position: 'absolute',
+                          left: `${((keyframe.frame - block.startFrame) / Math.max(1, block.endFrame - block.startFrame)) * 100}%`,
+                          top: 2,
+                          width: 8,
+                          height: 8,
+                          transform: 'translateX(-50%) rotate(45deg)',
+                          background: '#fde68a',
+                          border: '1px solid rgba(0,0,0,.45)',
+                          borderRadius: 2,
+                          zIndex: 4,
+                          pointerEvents: 'none',
                         }}
                       />
                     ))}

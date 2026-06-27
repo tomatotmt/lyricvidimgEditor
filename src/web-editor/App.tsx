@@ -3,31 +3,37 @@ import {Player, PlayerRef} from '@remotion/player';
 import {TimelineTracks} from './components/TimelineTracks';
 import {EditorTabs} from './components/EditorTabs';
 import {LyricComposition} from './components/LyricComposition';
-import {BeatMarker, GlobalSettings, initialLyrics, LyricBlock} from './types';
+import {BeatMarker, GlobalSettings, ImageBlock, initialLyrics, LyricBlock} from './types';
 import {withGeneratedTokens} from './lyricTokens';
 
 type HistorySnapshot = {
   lyrics: LyricBlock[];
+  imageBlocks: ImageBlock[];
   globalSettings: GlobalSettings;
   trackCount: number;
   selectedId: string | null;
+  selectedImageId: string | null;
 };
 
 type ProjectStateUpdate = {
   lyrics: LyricBlock[];
+  imageBlocks?: ImageBlock[];
   globalSettings: GlobalSettings;
   trackCount?: number;
   selectedId?: string | null;
+  selectedImageId?: string | null;
 };
 
 const App: React.FC = () => {
   const [lyrics, setLyrics] = useState<LyricBlock[]>(initialLyrics);
+  const [imageBlocks, setImageBlocks] = useState<ImageBlock[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [durationInFrames, setDurationInFrames] = useState(300);
   const [trackCount, setTrackCount] = useState(4);
   const [fps] = useState(30);
-  const [audioFile, setAudioFile] = useState<{name: string; url: string; duration?: number} | null>(null);
+  const [audioFile, setAudioFile] = useState<{name: string; url: string; dataUrl?: string; duration?: number} | null>(null);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
     font: 'Outfit',
     textEffect: 'Pop In',
@@ -53,12 +59,15 @@ const App: React.FC = () => {
   const undoStackRef = useRef<HistorySnapshot[]>([]);
   const redoStackRef = useRef<HistorySnapshot[]>([]);
   const selectedBlock = lyrics.find((lyric) => lyric.id === selectedId);
+  const selectedImageBlock = imageBlocks.find((image) => image.id === selectedImageId);
 
   const snapshot = () => ({
     lyrics: structuredClone(lyrics),
+    imageBlocks: structuredClone(imageBlocks),
     globalSettings: structuredClone(globalSettings),
     trackCount,
     selectedId,
+    selectedImageId,
   });
 
   const recordHistory = () => {
@@ -71,6 +80,11 @@ const App: React.FC = () => {
     setLyrics(action);
   };
 
+  const setImageBlocksWithHistory: React.Dispatch<React.SetStateAction<ImageBlock[]>> = (action) => {
+    recordHistory();
+    setImageBlocks(action);
+  };
+
   const setGlobalSettingsWithHistory: React.Dispatch<React.SetStateAction<GlobalSettings>> = (action) => {
     recordHistory();
     setGlobalSettings(action);
@@ -81,9 +95,11 @@ const App: React.FC = () => {
     if (!previous) return;
     redoStackRef.current.push(snapshot());
     setLyrics(previous.lyrics);
+    setImageBlocks(previous.imageBlocks);
     setGlobalSettings(previous.globalSettings);
     setTrackCount(previous.trackCount);
     setSelectedId(previous.selectedId && previous.lyrics.some((lyric) => lyric.id === previous.selectedId) ? previous.selectedId : null);
+    setSelectedImageId(previous.selectedImageId && previous.imageBlocks.some((image) => image.id === previous.selectedImageId) ? previous.selectedImageId : null);
   };
 
   const redo = () => {
@@ -91,17 +107,21 @@ const App: React.FC = () => {
     if (!next) return;
     undoStackRef.current.push(snapshot());
     setLyrics(next.lyrics);
+    setImageBlocks(next.imageBlocks);
     setGlobalSettings(next.globalSettings);
     setTrackCount(next.trackCount);
     setSelectedId(next.selectedId && next.lyrics.some((lyric) => lyric.id === next.selectedId) ? next.selectedId : null);
+    setSelectedImageId(next.selectedImageId && next.imageBlocks.some((image) => image.id === next.selectedImageId) ? next.selectedImageId : null);
   };
 
   const applyProjectStateUpdate = (update: ProjectStateUpdate) => {
     recordHistory();
     setLyrics(update.lyrics);
+    if (update.imageBlocks !== undefined) setImageBlocks(update.imageBlocks);
     setGlobalSettings(update.globalSettings);
     if (update.trackCount !== undefined) setTrackCount(update.trackCount);
     if (update.selectedId !== undefined) setSelectedId(update.selectedId);
+    if (update.selectedImageId !== undefined) setSelectedImageId(update.selectedImageId);
   };
 
   useEffect(() => {
@@ -136,20 +156,25 @@ const App: React.FC = () => {
   };
 
   const updateSelectedPosition = (x: number, y: number) => {
+    if (selectedImageId) {
+      setImageBlocks((prev) => prev.map((image) => (image.id === selectedImageId ? {...image, x, y} : image)));
+      return;
+    }
     if (!selectedId) return;
     setLyrics((prev) => prev.map((lyric) => (lyric.id === selectedId ? {...lyric, x, y} : lyric)));
   };
 
   const startPreviewLyricDrag = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!previewPositionDragEnabled || !selectedBlock) return;
+    const selectedPositionItem = selectedImageBlock ?? selectedBlock;
+    if (!previewPositionDragEnabled || !selectedPositionItem) return;
     event.preventDefault();
     event.stopPropagation();
 
     const rect = event.currentTarget.getBoundingClientRect();
     const startX = event.clientX;
     const startY = event.clientY;
-    const initialX = selectedBlock.x;
-    const initialY = selectedBlock.y;
+    const initialX = selectedPositionItem.x;
+    const initialY = selectedPositionItem.y;
 
     const onMove = (moveEvent: MouseEvent) => {
       const deltaX = ((moveEvent.clientX - startX) / rect.width) * 1920;
@@ -199,10 +224,17 @@ const App: React.FC = () => {
     recordHistory();
     setLyrics((prev) => [...prev, withGeneratedTokens(newBlock)]);
     setSelectedId(nextId);
+    setSelectedImageId(null);
     setActiveTab('edit');
   };
 
   const handleDeleteLyric = () => {
+    if (selectedImageId) {
+      recordHistory();
+      setImageBlocks((prev) => prev.filter((image) => image.id !== selectedImageId));
+      setSelectedImageId(null);
+      return;
+    }
     if (!selectedId) return;
     recordHistory();
     setLyrics((prev) => prev.filter((lyric) => lyric.id !== selectedId));
@@ -266,20 +298,20 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const maxFrame = Math.max(300, ...lyrics.map((lyric) => lyric.endFrame));
+    const maxFrame = Math.max(300, ...lyrics.map((lyric) => lyric.endFrame), ...imageBlocks.map((image) => image.endFrame));
     if (maxFrame > durationInFrames) {
       setDurationInFrames(maxFrame + 30);
     }
-  }, [lyrics, durationInFrames]);
+  }, [lyrics, imageBlocks, durationInFrames]);
 
   useEffect(() => {
     if (!audioFile?.duration) return;
     const audioFrames = Math.max(1, Math.ceil(audioFile.duration * fps));
-    const lyricFrames = Math.max(0, ...lyrics.map((lyric) => lyric.endFrame + 30));
+    const lyricFrames = Math.max(0, ...lyrics.map((lyric) => lyric.endFrame + 30), ...imageBlocks.map((image) => image.endFrame + 30));
     const nextDuration = Math.max(300, audioFrames, lyricFrames);
     setDurationInFrames(nextDuration);
     setCurrentFrame((frame) => Math.min(frame, nextDuration));
-  }, [audioFile?.duration, fps, lyrics]);
+  }, [audioFile?.duration, fps, lyrics, imageBlocks]);
 
   useEffect(() => {
     if (!audioFile?.url) return;
@@ -319,7 +351,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentFrame, durationInFrames, player, selectedId, lyrics, globalSettings, repeatSelectedBlockEnabled, selectedBlock]);
+  }, [currentFrame, durationInFrames, player, selectedId, selectedImageId, lyrics, imageBlocks, globalSettings, repeatSelectedBlockEnabled, selectedBlock, selectedImageBlock]);
 
   return (
     <div style={{display: 'grid', gridTemplateColumns: `minmax(0, 1fr) 8px minmax(340px, ${rightPanelWidth}px)`, gap: 10, padding: 18, height: '100vh', boxSizing: 'border-box'}}>
@@ -358,7 +390,7 @@ const App: React.FC = () => {
                 選択テキスト範囲をリピート再生
               </label>
             </div>
-            <span>{selectedBlock ? `選択中: ${selectedBlock.text}` : '未選択'}</span>
+            <span>{selectedImageBlock ? `Selected image: ${selectedImageBlock.name}` : selectedBlock ? `選択中: ${selectedBlock.text}` : '未選択'}</span>
           </div>
 
           <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, minHeight: 0, overflow: 'hidden'}}>
@@ -375,7 +407,7 @@ const App: React.FC = () => {
               <Player
                 ref={setPlayer}
                 component={LyricComposition}
-                inputProps={{lyrics, globalSettings, audioUrl: audioFile?.url, beatMarkers}}
+                inputProps={{lyrics, imageBlocks, globalSettings, audioUrl: audioFile?.url, beatMarkers}}
                 durationInFrames={durationInFrames}
                 fps={fps}
                 compositionWidth={1920}
@@ -396,14 +428,14 @@ const App: React.FC = () => {
               {previewPositionDragEnabled && (
                 <div
                   onMouseDown={startPreviewLyricDrag}
-                  title={selectedBlock ? 'ドラッグして選択中の歌詞のXY位置を変更' : 'タイムライン上のリリックブロックを選択してください'}
+                  title={selectedImageBlock || selectedBlock ? 'Drag to move the selected item' : 'Select a lyric or image block first'}
                   style={{
                     position: 'absolute',
                     inset: 0,
                     zIndex: 5,
-                    cursor: selectedBlock ? 'move' : 'not-allowed',
+                    cursor: selectedImageBlock || selectedBlock ? 'move' : 'not-allowed',
                     borderRadius: 8,
-                    border: selectedBlock ? '1px dashed rgba(59,130,246,.7)' : '1px dashed rgba(156,163,175,.35)',
+                    border: selectedImageBlock || selectedBlock ? '1px dashed rgba(59,130,246,.7)' : '1px dashed rgba(156,163,175,.35)',
                     background: 'rgba(59,130,246,.03)',
                     pointerEvents: 'auto',
                   }}
@@ -441,8 +473,12 @@ const App: React.FC = () => {
         <TimelineTracks
           lyrics={lyrics}
           setLyrics={setLyricsWithHistory}
+          imageBlocks={imageBlocks}
+          setImageBlocks={setImageBlocksWithHistory}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
+          selectedImageId={selectedImageId}
+          setSelectedImageId={setSelectedImageId}
           currentFrame={currentFrame}
           setCurrentFrame={handleSeek}
           durationInFrames={durationInFrames}
@@ -505,8 +541,12 @@ const App: React.FC = () => {
         <EditorTabs
           lyrics={lyrics}
           setLyrics={setLyricsWithHistory}
+          imageBlocks={imageBlocks}
+          setImageBlocks={setImageBlocksWithHistory}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
+          selectedImageId={selectedImageId}
+          setSelectedImageId={setSelectedImageId}
           globalSettings={globalSettings}
           setGlobalSettings={setGlobalSettingsWithHistory}
           audioFile={audioFile}
