@@ -1,9 +1,12 @@
 {
-  "name": "helloworld",
+  "name": "lyricvidimg-editor",
   "version": "1.0.0",
-  "description": "My Remotion video",
+  "description": "Lyric-first MV editor with image, beat, and text effects.",
   "main": "electron/lrc-sync-main.cjs",
-  "repository": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tomatotmt/lyricvidimgEditor.git"
+  },
   "license": "UNLICENSED",
   "private": true,
   "type": "module",

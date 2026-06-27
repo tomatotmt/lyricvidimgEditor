@@ -12,6 +12,7 @@ import {
   ImageEffectCategory,
   ImageEffectName,
   ImageEffectSlot,
+  IMAGE_EFFECT_OPTIONS,
   ImageKeyframeProperty,
   LyricBlock,
   LyricKeyframeProperty,
@@ -99,6 +100,8 @@ type ExportStatus = {
 type ProjectImportReport = {
   fileName: string;
   lyricCount: number;
+  imageCount: number;
+  audioRestored: boolean;
   fixedCount: number;
   messages: string[];
 };
@@ -291,6 +294,49 @@ const createDefaultImageEffectSlots = (): ImageEffectSlot[] =>
     effect: category.defaultEffect,
     intensity: index === 0 ? 5 : 4,
   }));
+
+const IMAGE_EFFECT_PRESETS: Array<{
+  label: string;
+  description: string;
+  slots: Array<Pick<ImageEffectSlot, 'category' | 'effect' | 'intensity'>>;
+}> = [
+  {
+    label: 'Beat MV',
+    description: 'Strong shake and zoom for chorus hits',
+    slots: [
+      {category: 'motion', effect: 'Bass Shake Zoom', intensity: 8},
+      {category: 'glitch', effect: 'RGB Glitch', intensity: 4},
+      {category: 'color', effect: 'Flash Pulse', intensity: 5},
+    ],
+  },
+  {
+    label: 'Dark Glitch',
+    description: 'Darker tone with digital tearing',
+    slots: [
+      {category: 'motion', effect: 'Directional Punch', intensity: 5},
+      {category: 'glitch', effect: 'Slice Glitch', intensity: 7},
+      {category: 'color', effect: 'Dark Pulse', intensity: 7},
+      {category: 'texture', effect: 'VHS Jitter', intensity: 5},
+    ],
+  },
+  {
+    label: 'Soft Ballad',
+    description: 'Slow movement with gentle color lift',
+    slots: [
+      {category: 'motion', effect: 'Parallax Drift', intensity: 3},
+      {category: 'color', effect: 'Saturation Pulse', intensity: 2},
+    ],
+  },
+  {
+    label: 'VHS Punch',
+    description: 'Analog jitter with blur flashes',
+    slots: [
+      {category: 'motion', effect: 'Beat Blur Flash', intensity: 5},
+      {category: 'glitch', effect: 'Glitch Hit', intensity: 5},
+      {category: 'texture', effect: 'VHS Jitter', intensity: 7},
+    ],
+  },
+];
 
 const QUICK_THREE_TEXT_PRESETS: Array<{label: string; effect: (typeof THREE_TEXT_EFFECT_OPTIONS)[number]}> = [
   {label: 'Tunnel', effect: 'Glyph Corridor Rush'},
@@ -916,6 +962,84 @@ const normalizeBeatMarkers = (markers: unknown[]): BeatMarker[] =>
       source: marker.source ?? 'imported',
     }))
     .sort((a, b) => a.frame - b.frame);
+
+const normalizeImportedImageBlock = (
+  raw: unknown,
+  index: number,
+  durationInFrames: number,
+): {image: ImageBlock | null; fixes: string[]} => {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Partial<ImageBlock>;
+  const fixes: string[] = [];
+  if (typeof value.src !== 'string' || !value.src) {
+    fixes.push(`image ${index + 1}: srcが空のためスキップしました。`);
+    return {image: null, fixes};
+  }
+
+  const startFrame = clampFrameValue(value.startFrame, index * 45, 0, Math.max(0, durationInFrames - 1));
+  const endFrame = Math.max(startFrame + 1, clampFrameValue(value.endFrame, startFrame + 90, startFrame + 1, durationInFrames));
+  const layer = Math.max(0, Math.min(2, Math.round(toFiniteNumber(value.layer, index % 3)))) as ImageBlock['layer'];
+  const effect = IMAGE_EFFECT_OPTIONS.includes(value.effect as ImageEffectName) ? value.effect as ImageEffectName : 'None';
+  const normalizedSlots = IMAGE_EFFECT_CATEGORY_OPTIONS.map((category) => {
+    const importedSlot = Array.isArray(value.imageEffects)
+      ? value.imageEffects.find((slot) => slot.category === category.category)
+      : undefined;
+    const effectValue = importedSlot?.effect && category.options.includes(importedSlot.effect)
+      ? importedSlot.effect
+      : category.defaultEffect;
+    return {
+      category: category.category,
+      enabled: Boolean(importedSlot?.enabled),
+      effect: effectValue,
+      intensity: Math.max(0, Math.min(10, toFiniteNumber(importedSlot?.intensity, value.effectIntensity ?? 5))),
+    };
+  });
+
+  if (startFrame !== value.startFrame || endFrame !== value.endFrame || layer !== value.layer) {
+    fixes.push(`image ${index + 1}: タイミングまたはレイヤーを有効範囲に補正しました。`);
+  }
+  if (effect !== value.effect) {
+    fixes.push(`image ${index + 1}: 未知の画像エフェクトをNoneに補正しました。`);
+  }
+
+  return {
+    image: {
+      id: typeof value.id === 'string' && value.id ? value.id : `imported-image-${Date.now()}-${index}`,
+      name: typeof value.name === 'string' && value.name ? value.name : `Image ${index + 1}`,
+      src: value.src,
+      layer,
+      startFrame,
+      endFrame,
+      x: toFiniteNumber(value.x, 0),
+      y: toFiniteNumber(value.y, 0),
+      scale: Math.max(0.05, Math.min(8, toFiniteNumber(value.scale, 1))),
+      rotation: toFiniteNumber(value.rotation, 0),
+      opacity: Math.max(0, Math.min(1, toFiniteNumber(value.opacity, 1))),
+      effect,
+      effectIntensity: Math.max(0, Math.min(10, toFiniteNumber(value.effectIntensity, 5))),
+      effectSpeed: Math.max(1, Math.min(10, toFiniteNumber(value.effectSpeed, 5))),
+      beatSync: Boolean(value.beatSync),
+      imageEffects: normalizedSlots,
+      keyframes: Array.isArray(value.keyframes)
+        ? value.keyframes
+            .map((keyframe, keyframeIndex) => {
+              const item = keyframe as NonNullable<ImageBlock['keyframes']>[number];
+              const property = IMAGE_KEYFRAME_PROPERTIES.some((candidate) => candidate.value === item.property)
+                ? item.property
+                : undefined;
+              if (!property) return null;
+              return {
+                id: item.id ?? `imported-image-kf-${index}-${keyframeIndex}`,
+                frame: clampFrameValue(item.frame, startFrame, startFrame, endFrame),
+                property,
+                value: toFiniteNumber(item.value, 0),
+              };
+            })
+            .filter((keyframe): keyframe is NonNullable<ImageBlock['keyframes']>[number] => Boolean(keyframe))
+        : undefined,
+    },
+    fixes,
+  };
+};
 
 const numericKeyframes = new Set<LyricKeyframeProperty>([
   'x',
@@ -1833,6 +1957,20 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
     });
   };
 
+  const applyImageEffectPreset = (preset: (typeof IMAGE_EFFECT_PRESETS)[number]) => {
+    if (!selectedImageBlock) return;
+    const presetByCategory = new Map(preset.slots.map((slot) => [slot.category, slot]));
+    updateSelectedImageBlock({
+      beatSync: true,
+      imageEffects: getImageEffectSlots(selectedImageBlock).map((slot) => {
+        const presetSlot = presetByCategory.get(slot.category);
+        return presetSlot
+          ? {...slot, enabled: true, effect: presetSlot.effect, intensity: presetSlot.intensity}
+          : {...slot, enabled: false};
+      }),
+    });
+  };
+
   const deleteSelectedImageBlock = () => {
     if (!selectedImageId) return;
     setImageBlocks((prev) => prev.filter((image) => image.id !== selectedImageId));
@@ -2110,7 +2248,7 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
     if (!selectedBlock) return;
     const value = selectedBlock[keyframeProperty] ?? (keyframeProperty === 'textBackgroundColor' ? 'transparent' : '');
     setKeyframeValue(String(value));
-  }, [keyframeProperty, selectedBlock?.id]);
+  }, [keyframeProperty, selectedBlock, selectedBlock?.id]);
 
   const addKeyframe = (property: LyricKeyframeProperty, value: string | number, frame = currentFrame) => {
     if (!selectedBlock) return;
@@ -2337,12 +2475,29 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
   };
 
   const exportProjectJson = () => {
-    const blob = new Blob([JSON.stringify({lyrics, imageBlocks, globalSettings, trackCount, beatMarkers}, null, 2)], {type: 'application/json'});
+    const projectPayload = {
+      version: 2,
+      app: 'lyricvidimg-editor',
+      lyrics,
+      imageBlocks,
+      globalSettings,
+      trackCount,
+      beatMarkers,
+      audioFile: audioFile?.dataUrl
+        ? {
+            name: audioFile.name,
+            dataUrl: audioFile.dataUrl,
+            duration: audioFile.duration,
+          }
+        : undefined,
+    };
+    const blob = new Blob([JSON.stringify(projectPayload, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'lyric-project.json';
+    a.download = 'lyricvidimg-project.json';
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const importProjectJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2355,9 +2510,12 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         const nextGlobalSettings = normalizeGlobalSettings(parsed.globalSettings, globalSettings);
         const messages: string[] = [];
         let fixedCount = 0;
+        let normalizedLyrics: LyricBlock[] = [];
+        let normalizedImages: ImageBlock[] = [];
+        let audioRestored = false;
 
         if (Array.isArray(parsed.lyrics)) {
-          const normalizedLyrics = parsed.lyrics.map((lyric: unknown, index: number) => {
+          normalizedLyrics = parsed.lyrics.map((lyric: unknown, index: number) => {
             const normalized = normalizeImportedLyric(lyric, index, nextGlobalSettings, durationInFrames);
             if (normalized.fixes.length > 0) {
               fixedCount += 1;
@@ -2375,7 +2533,32 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         setGlobalSettings(nextGlobalSettings);
         if (parsed.globalSettings && nextGlobalSettings !== parsed.globalSettings) messages.push('globalSettingsを現在の形式へ補正しました。');
         if (Array.isArray(parsed.beatMarkers)) setBeatMarkers(normalizeBeatMarkers(parsed.beatMarkers));
-        if (Array.isArray(parsed.imageBlocks)) setImageBlocks(parsed.imageBlocks as ImageBlock[]);
+        if (Array.isArray(parsed.imageBlocks)) {
+          const normalized: Array<ReturnType<typeof normalizeImportedImageBlock>> = parsed.imageBlocks.map((image: unknown, index: number) => normalizeImportedImageBlock(image, index, durationInFrames));
+          normalizedImages = normalized
+            .map((item) => item.image)
+            .filter((image): image is ImageBlock => Boolean(image));
+          normalized.forEach((item) => {
+            if (item.fixes.length > 0) {
+              fixedCount += 1;
+              messages.push(...item.fixes);
+            }
+          });
+          setImageBlocks(normalizedImages);
+          setSelectedImageId(normalizedLyrics.length === 0 ? normalizedImages[0]?.id ?? null : null);
+        } else {
+          setImageBlocks([]);
+        }
+        if (parsed.audioFile?.dataUrl && typeof parsed.audioFile.dataUrl === 'string') {
+          const audioUrl = parsed.audioFile.dataUrl;
+          setAudioFile({
+            name: typeof parsed.audioFile.name === 'string' ? parsed.audioFile.name : 'project-audio',
+            url: audioUrl,
+            dataUrl: audioUrl,
+            duration: Number.isFinite(parsed.audioFile.duration) ? Number(parsed.audioFile.duration) : undefined,
+          });
+          audioRestored = true;
+        }
         if (Number.isFinite(parsed.trackCount)) {
           setTrackCount(Math.max(4, Number(parsed.trackCount)));
         } else if (Array.isArray(parsed.lyrics)) {
@@ -2384,6 +2567,8 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
         setProjectImportReport({
           fileName: file.name,
           lyricCount: Array.isArray(parsed.lyrics) ? parsed.lyrics.length : 0,
+          imageCount: normalizedImages.length,
+          audioRestored,
           fixedCount,
           messages: messages.slice(0, 12),
         });
@@ -2974,6 +3159,28 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
 
             <div style={sectionStyle}>
               <h4 style={{marginBottom: 10}}>Effect Slots</h4>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12}}>
+                {IMAGE_EFFECT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.description}
+                    onClick={() => applyImageEffectPreset(preset)}
+                    style={{
+                      ...buttonStyle,
+                      padding: 9,
+                      background: 'linear-gradient(135deg, rgba(37,99,235,.95), rgba(14,116,144,.9))',
+                      border: '1px solid rgba(147,197,253,.22)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{display: 'block', fontSize: 12}}>{preset.label}</span>
+                    <span style={{display: 'block', color: '#bfdbfe', fontSize: 10, fontWeight: 600, marginTop: 2}}>
+                      {preset.slots.length} slots
+                    </span>
+                  </button>
+                ))}
+              </div>
               <label>Global speed: {selectedImageBlock.effectSpeed}</label>
               <input type="range" min="1" max="10" step="1" value={selectedImageBlock.effectSpeed} onChange={(event) => updateSelectedImageBlock({effectSpeed: Number(event.target.value)})} />
               <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginTop: 12}}>
@@ -3694,7 +3901,12 @@ export const EditorTabs: React.FC<EditorTabsProps> = ({
                   }}
                 >
                   <div style={{fontWeight: 800, color: '#f9fafb'}}>{projectImportReport.fileName}</div>
-                  <div>{projectImportReport.lyricCount} blocks / {projectImportReport.fixedCount} blocks fixed</div>
+                  <div>
+                    {projectImportReport.lyricCount} lyric blocks / {projectImportReport.imageCount} image blocks / {projectImportReport.fixedCount} fixed
+                  </div>
+                  <div style={{color: projectImportReport.audioRestored ? '#86efac' : '#fbbf24'}}>
+                    Audio: {projectImportReport.audioRestored ? 'restored from project' : 'not included'}
+                  </div>
                   {projectImportReport.messages.length > 0 ? (
                     <ul style={{margin: '8px 0 0', paddingLeft: 18}}>
                       {projectImportReport.messages.map((message, index) => (

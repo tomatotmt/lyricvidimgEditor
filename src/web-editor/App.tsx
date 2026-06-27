@@ -137,7 +137,7 @@ const App: React.FC = () => {
     };
     player.addEventListener('frameupdate', handleFrameUpdate);
     return () => player.removeEventListener('frameupdate', handleFrameUpdate);
-  }, [player, repeatSelectedBlockEnabled, selectedBlock?.id, selectedBlock?.startFrame, selectedBlock?.endFrame]);
+  }, [player, repeatSelectedBlockEnabled, selectedBlock, selectedBlock?.id, selectedBlock?.startFrame, selectedBlock?.endFrame]);
 
   const handleSeek = (frame: number) => {
     setCurrentFrame(frame);
@@ -351,6 +351,8 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  // Keyboard shortcuts should reflect the latest editor state; re-registering on state changes is intentional here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFrame, durationInFrames, player, selectedId, selectedImageId, lyrics, imageBlocks, globalSettings, repeatSelectedBlockEnabled, selectedBlock, selectedImageBlock]);
 
   return (

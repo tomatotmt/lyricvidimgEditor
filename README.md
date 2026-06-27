@@ -1,223 +1,83 @@
-# lyricvidEditor
+# lyricvidimgEditor
 
-Remotion + React + Vite を使った、歌詞動画向けのWeb UIエディタです。
+Lyric-first MV editor built with React, Vite, and Remotion.
 
-LRC読み込み、歌詞専用タイムライン、ビート同期、token単位の歌詞同期、登場/歌唱中/退場エフェクト、透明MOV書き出しを中心に構成しています。
+The app focuses on lyric timing/editing first, then lets you place still images on a timeline and animate them with beat-synced image effects. The current export target is MP4.
 
----
-
-## 開発を始める手順
-
-### 1. リポジトリをクローン
+## Setup
 
 ```bash
-git clone https://github.com/tomatotmt/lyricvidEditor.git
-cd lyricvidEditor
-```
-
-### 2. 依存パッケージをインストール
-
-```bash
+git clone https://github.com/tomatotmt/lyricvidimgEditor.git
+cd lyricvidimgEditor
 npm install
-```
-
-### 3. Webエディタを起動
-
-```bash
 npm run web
 ```
 
-ブラウザで `http://localhost:3000/` を開くとエディタが起動します。
+Open the URL printed by the server, usually:
 
-### 4. 検証
+```txt
+http://127.0.0.1:3000/
+```
+
+If port 3000 is busy, the dev server automatically uses the next available port.
+
+## Main Features
+
+- LRC import and lyric block timeline editing
+- Word, mora, and character-level lyric timing
+- Beat marker detection, manual beat markers, and BPM grid markers
+- Multiple lyric tracks for main lyrics, overlaps, emphasis, and accent lines
+- Text effects, display effects, fade settings, and keyframes
+- Experimental real-time 3D text effects with Three.js
+- Still image timeline with up to 3 image layers
+- PNG transparency support through image uploads
+- Image effect slots by category:
+  - Motion
+  - Glitch
+  - Color
+  - Texture
+- Quick image effect presets for common MV looks
+- MP4 export from the web UI
+- Project JSON export/import including lyrics, images, beat markers, settings, and embedded audio when available
+
+## Scripts
 
 ```bash
-npm run lint
+npm run web
 npm run build
+npm run lint
 ```
 
----
+`npm run web` starts the combined Vite + Remotion export server.
 
-## 主な機能
+## Project Workflow
 
-- **歌詞専用タイムライン**
-  - `Main Lyrics`、`Alt / Overlap`、`Emphasis`、`FX / Accent` を基本レーンとして使用
-  - ブロックをドラッグして開始位置やトラックを調整
-  - ブロック端をドラッグして開始/終了フレームを調整
+1. Import an audio file.
+2. Import an LRC file or add lyric blocks manually.
+3. Adjust lyric timing on the timeline.
+4. Add still images and place them on image layers.
+5. Select a lyric or image block and edit it in the inspector.
+6. Use beat markers and image effect presets to build movement quickly.
+7. Export MP4 from the Output tab.
 
-- **LRC読み込み**
-  - `.lrc` ファイルを読み込み、歌詞をタイムラインへ自動配置
-  - 通常の歌詞は `Main Lyrics`、重なる歌詞は `Alt / Overlap` へ配置
-  - 各歌詞の終了位置は次のLRC行の直前を基準に自動設定
+## Project Save Format
 
-- **歌詞同期**
-  - 同期単位は `Auto`、`Word`、`Mora`、`Character` から選択
-  - 歌詞ブロック内のtoken境界をタイムライン上で直接ドラッグ可能
-  - `ビートへ割当` でtokenをブロック内の拍へ自動配置
+The project export is a JSON file named `lyricvidimg-project.json`.
 
-- **ビート編集**
-  - 音声から簡易ビート検出
-  - 波形エリアのダブルクリックで手動ビート追加
-  - ビート線をドラッグして位置調整
-  - 選択ビートの削除と `拍強度` の調整
-  - BPM入力から一定間隔の `BPMグリッド` を生成
-  - `ビート吸着` ON時はブロック移動、端調整、token境界調整が近い拍へ吸着
-  - `Alt` を押しながら操作すると1フレーム単位で調整
+It stores:
 
-- **エフェクトフェーズ**
-  - `登場エフェクト`: 歌詞が出る時の動き
-  - `歌唱中エフェクト`: ブロック表示中の文字演出
-  - `退場エフェクト`: 歌詞が消える時の動き
-  - Beat系エフェクトは検出・手動・BPMグリッドの拍に反応
-  - Word / Syllable / Vocal系エフェクトはtoken同期を利用
-  - 通常の3D歌唱中エフェクトもtoken同期に対応
+- Lyrics and lyric timing
+- Image blocks and image Data URLs
+- Image effect slots and keyframes
+- Global settings
+- Beat markers
+- Track count
+- Audio Data URL when the browser has finished loading it
 
-- **キーフレーム**
-  - 倍率・XY・角度の専用フレーム設定
-  - 色・背景色・枠線の専用フレーム設定
-  - 追加項目は `詳細キーフレーム` で直接登録
-  - タイムライン上の菱形マーカーをドラッグしてフレーム位置を調整
+Large audio and image assets can make the JSON file large. For now this is intentional so another PC can reopen the project without manually collecting image files.
 
-- **保存と読み込み**
-  - 作業データをJSONでエクスポート/インポート
-  - 歌詞、エフェクト、トラック数、token同期、ビートマーカーを保存
+## Notes
 
-- **出力**
-  - 透明背景のMOVを書き出し
-  - Web UIからレンダリングを実行
-
-- **lrcSyncTool**
-  - 時間表記のない歌詞テキストと曲ファイルから、時間付きLRCを作る補助ツール
-  - 曲を再生しながらEnterで行ごとの歌い出しを打刻
-  - 波形上のマーカーをドラッグしてタイミングを微調整
-  - `.lrc` として保存し、lyricvidEditorに読み込み可能
-
----
-
-## 基本操作
-
-1. `入力・共通` タブで音楽ファイル、LRCファイル、またはプロジェクトJSONを読み込みます。
-2. タイムラインで歌詞ブロックを選択します。
-3. `歌詞同期` で同期単位を選び、必要に応じて `ビートへ割当` を実行します。
-4. タイムライン上のtoken境界をドラッグして、単語・モーラ・文字のタイミングを微調整します。
-5. `エフェクトフェーズ` で登場、歌唱中、退場の演出を選びます。
-6. 必要に応じてビート位置、拍強度、BPMグリッドを調整します。
-7. `出力` タブからMOVを書き出します。
-
----
-
-## タイムライン操作
-
-- 空白部分クリック: シーク
-- 歌詞ブロックドラッグ: 開始位置を移動
-- 歌詞ブロックを上下へドラッグ: トラック移動
-- 歌詞ブロック端ドラッグ: 開始/終了フレーム調整
-- token境界ドラッグ: 歌詞内部の同期タイミング調整
-- ビート線ドラッグ: ビート位置調整
-- 波形エリアをダブルクリック: 手動ビート追加
-- ビート線をダブルクリック: ビート削除
-- `Alt` + ドラッグ: 1フレーム単位で調整
-
----
-
-## lrcSyncTool
-
-`lrcSyncTool` は、時間表記のない歌詞テキストにタイムスタンプを付けるための別ツールです。
-
-開発サーバー起動後、以下を開きます。
-
-```txt
-http://localhost:3000/lrc-sync-tool.html
-```
-
-デスクトップアプリとして確認する場合:
-
-```bash
-npm run preview:lrc-app
-```
-
-配布用アプリを作成する場合:
-
-```bash
-npm run build:lrc-app
-```
-
-出力先:
-
-```txt
-release/lrcSyncTool-app/
-```
-
-Windowsでは `lrcSyncTool.exe`、macOSではMac上で実行すると `lrcSyncTool.app` が生成されます。
-このアプリには lyricvidEditor 本体を同梱せず、lrcSyncTool 用のHTML/JS/CSSだけを含めます。
-
-インストーラー形式まで作成する場合:
-
-```bash
-npm run build:lrc-installer
-```
-
-基本手順:
-
-1. 音源ファイルを読み込みます。
-2. 歌詞テキスト、または既存の `.txt` / `.lrc` を読み込みます。
-3. 曲を再生します。
-4. 歌い出しごとに `Enter` を押して現在行を打刻します。
-5. 必要に応じて波形上のマーカーをドラッグして微調整します。
-6. `LRC保存` で時間付きLRCを書き出します。
-
-ショートカット:
-
-- `Space`: 再生/停止
-- `Enter`: 現在行を打刻して次の行へ
-- `↑ / ↓`: 現在行を移動
-- 波形クリック: 現在行をその位置へ配置
-
----
-
-## LRC読み込み後の編集支援
-
-`lyricvidEditor` 側では、LRC読み込み時に歌詞ブロックを動画編集しやすい形へ整形できます。
-
-- 終了位置を「次行の少し前」「次行まで」「最低表示時間」「余韻あり」から選択
-- 短いキメ、合いの手、英語、間奏表記などを役割ラベルとして自動分類
-- 重なりそうな行を Alt / Overlap、強調語を Emphasis、間奏表記を FX / Accent へ自動配置
-- 曲調プリセットで、12カテゴリ/60プリセットから初期演出をカテゴリで絞り込んで一括適用
-- 読み込み後セットアップで、LRC整形、曲調プリセット、密度整理、重なり回避の内容を確認してから一括適用し、1回のUndoで復帰
-- 曲構成ビューで、サビ候補や余白区間を推定し、区間単位でサビ化/余韻化
-- 選択中、選択行以降、全歌詞を数フレーム単位で前後に微調整
-- 歌詞密度ビューで、文字量が多い区間と余白のある区間を確認
-- 密度に合わせて、詰まった区間は軽い演出、余白区間は余韻演出へ整理
-- 強調語候補から Emphasis トラック用の短い演出ブロックを追加
-- 読み込み後チェックで、短すぎる表示、長い行、同一トラック重なり、動画尺外、Beat系演出のビート不足を確認
-- チェック結果から、短すぎる表示・重なり・尺外・長い行・Beat情報不足をワンクリック補正
-- チェック項目をクリックして該当歌詞へ移動
-- AI生成JSONや古いプロジェクトJSONの不足値、未知のフォント/エフェクト、範囲外フレームを読み込み時に正規化
-
----
-
-## プロジェクト構成
-
-```text
-lyricvidEditor/
-├── index.html
-├── vite.config.ts
-├── package.json
-├── scripts/
-│   └── dev-server.mjs
-└── src/
-    ├── remotion/
-    │   └── index.tsx
-    └── web-editor/
-        ├── main.tsx
-        ├── App.tsx
-        ├── types.ts
-        ├── effects.ts
-        ├── lyricTokens.ts
-        ├── editor.css
-        └── components/
-            ├── EditorTabs.tsx
-            ├── TimelineTracks.tsx
-            ├── LyricComposition.tsx
-            └── ThreeTextEffects.tsx
-```
+- `node_modules` and `dist` are intentionally ignored.
+- The default renderer/export path is MP4/H.264.
+- Transparent ProRes/MOV export is not the default target anymore and should be treated as a future advanced option.
