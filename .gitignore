@@ -3,6 +3,7 @@ dist
 .DS_Store
 .env
 out
+release
 
 # Ignore heavy video assets
 public/videos/*
