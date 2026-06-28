@@ -69,6 +69,8 @@
     "build:lrc-installer": "npm run build:lrc-web && electron-builder --config electron-builder.lrc.cjs",
     "build:lrc-mac": "npm run build:lrc-web && electron-builder --config electron-builder.lrc.cjs --mac",
     "build:lrc-mac-zip": "npm run build:lrc-web && electron-builder --config electron-builder.lrc.cjs --mac zip",
+    "build:editor-mac": "npm run build && electron-builder --config electron-builder.editor.cjs --mac zip",
+    "build:editor-win": "npm run build && electron-builder --config electron-builder.editor.cjs --win zip",
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc"
   },
